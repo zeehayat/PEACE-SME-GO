@@ -6,28 +6,174 @@ The Vue frontend teaches SPA structure, routing, state stored in localStorage, A
 
 Application parallel: every Vue concept in this chapter is tied to a PEACE SME screen. You learn `ref` by storing login fields, `reactive` by building the business profile form, `computed` by switching English/Urdu labels, and route guards by protecting applicant/admin pages.
 
-## Theoretical Background
+## Foundational Concepts Explained Simply
 
-### SPA vs. MPA Architecture
-Traditional web applications (Multi-Page Applications or **MPAs**) fetch a completely new HTML document from the server on every navigation link clicked:
-- **Single Page Applications (SPAs)** load a single HTML shell page once.
-- Navigation is handled client-side using JavaScript (via the **HTML5 History API** or hash changes).
-- The router dynamically updates the DOM and swaps views without performing full page refreshes, resulting in smooth transitions.
-- Data fetching occurs in the background via asynchronous HTTP requests (`fetch` or `Axios`), swapping JSON payloads.
+### 1. SPA vs. MPA Architecture
 
-### Vue 3 Reactivity System (ES6 Proxies)
-Vue 3 uses JavaScript **ES6 Proxies** to drive its reactivity engine:
-- When a reactive object is initialized (`reactive()` or `ref()`), Vue wraps it in a Proxy.
-- **Dependency Tracking (Get):** When a component renders and accesses a reactive property, Vue records it as a dependency (called "tracking").
-- **Visual Re-rendering (Set):** When a reactive property changes, the proxy traps the write, notifying the dependent components to re-run their render functions and update the DOM (called "triggering").
+:::expandable [SPA vs. MPA Architecture]
+#### In-Depth Explanation
+* **Multi-Page Applications (MPAs):** Traditional sites (e.g., standard Flask or Laravel setups) request a new HTML page from the server on every navigation. The browser window flashes white, stylesheet assets are parsed again, and any local client-side memory state is wiped out.
+* **Single Page Applications (SPAs):** Load a single index.html shell containing a JavaScript bundle.
+  * **Routing:** Navigation is intercepted client-side via the HTML5 History API (`history.pushState`). The URL path changes, but the browser does not reload. Instead, a routing library (like Vue Router) swaps the active component layout in the DOM.
+  * **Data Flow:** The frontend communicates with the Go backend asynchronously by fetching JSON payloads via HTTP requests (`Axios` or `Fetch`).
 
-```text
-[ Data Change (Set) ] -> [ Proxy Trap ] -> [ Trigger Effect ] -> [ Virtual DOM Diff ] -> [ DOM Render ]
+#### Sandbox Program: Simple Vanilla Client-Side Router
+This sandbox demonstrates how client-side routing works in vanilla JavaScript. It intercepts click events, updates the URL history, and dynamically swaps out page views:
+
+```html
+<!-- Vanilla HTML SPA Simulator -->
+<div id="app">
+  <nav>
+    <a href="/" onclick="navigate(event, '/')">Home</a> |
+    <a href="/about" onclick="navigate(event, '/about')">About</a>
+  </nav>
+  <div id="view" style="padding: 20px; border: 1px solid #ccc; margin-top: 10px;"></div>
+</div>
+
+<script>
+// Mock view layouts mapping paths to templates
+const routes = {
+  '/': '<h1>Home Page</h1><p>Welcome to PEACE SME SPA!</p>',
+  '/about': '<h1>About Us</h1><p>We empower regional business rewrite systems.</p>'
+};
+
+function renderView(path) {
+  const viewElement = document.getElementById('view');
+  viewElement.innerHTML = routes[path] || '<h1>404 Not Found</h1>';
+}
+
+function navigate(event, path) {
+  event.preventDefault(); // Prevent full page browser reload
+  window.history.pushState({}, '', path); // Update address bar
+  renderView(path); // Update DOM dynamically
+}
+
+// Handle browser Back/Forward navigation triggers
+window.onpopstate = () => {
+  renderView(window.location.pathname);
+};
+
+// Initial Render
+renderView('/');
+</script>
+```
+:::
+
+### 2. Vue 3 Reactivity System (ES6 Proxies)
+
+:::expandable [Vue 3 Reactivity & ES6 Proxies]
+#### In-Depth Explanation
+Vue 3's reactivity system tracks variable changes and automatically updates the HTML DOM.
+* **Reactivity Mechanism:** Built using native **ES6 Proxies**. When you declare a reactive target via `ref(value)` or `reactive(object)`, Vue wraps the target object in a Proxy instance.
+* **Get Trap (Dependency Tracking):** When a component template renders and accesses a reactive property, the Proxy's `get` handler is triggered. Vue registers the calling component as a dependency of that property.
+* **Set Trap (DOM Re-rendering):** When the property is modified, the Proxy's `set` handler intercepts the write. It notifies all registered dependency functions to execute, causing the Virtual DOM to compare changes and re-render.
+
+#### Sandbox Program: Custom Reactivity in Vanilla JavaScript
+This sandbox implements a lightweight version of Vue's `ref()` function using ES6 Proxies to show how visual DOM updates are triggered whenever a JavaScript property changes:
+
+```html
+<!-- Simple Vanilla Reactivity Simulator -->
+<div class="card p-4">
+  <h2 id="counter-title">Count: 0</h2>
+  <button onclick="increment()">Add 1</button>
+</div>
+
+<script>
+// Mock Vue "ref" implementation using ES6 Proxies
+function myRef(initialValue) {
+  const container = { value: initialValue };
+  
+  // Trackers list (effects to run when value changes)
+  const subscribers = [];
+  
+  return new Proxy(container, {
+    get(target, key) {
+      if (key === 'value' && activeEffect) {
+        subscribers.push(activeEffect); // Track dependency
+      }
+      return target[key];
+    },
+    set(target, key, newValue) {
+      if (key === 'value') {
+        target[key] = newValue;
+        // Trigger all dependent effects
+        subscribers.forEach(effect => effect());
+      }
+      return true;
+    }
+  });
+}
+
+// Global active effect tracker
+let activeEffect = null;
+
+// The reactive state variable
+const count = myRef(0);
+
+// Register a renderer effect (acts like Vue's component compile render)
+activeEffect = () => {
+  document.getElementById('counter-title').innerText = `Count: ${count.value}`;
+};
+activeEffect(); // Run once initially to register get hook
+activeEffect = null; // Clear active tracker
+
+function increment() {
+  count.value++; // Mutating value automatically triggers set and updates DOM!
+}
+</script>
+```
+:::
+
+### 3. Composition API vs. Options API
+
+:::expandable [Composition API vs. Options API]
+#### In-Depth Explanation
+* **Options API:** Features are organized by option blocks: `data()`, `methods`, `computed`, `watch`. In complex components with multiple features, code for a single feature is scattered across multiple locations, making it difficult to maintain.
+* **Composition API (`<script setup>`):** Organizes code by logical feature concern in a unified script block.
+  * **Composables:** Allows you to extract reactive state and business logic into separate, reusable files (e.g. `useAuth.js`) and share them across different components.
+
+#### Sandbox Comparison: Options API vs. Composition API
+Compare these two component styles performing the exact same logic. Note how clean, organized, and reusable the Composition API layout is:
+
+##### Options API Style
+```js
+export default {
+  data() {
+    return {
+      language: 'english'
+    }
+  },
+  computed: {
+    isUrdu() {
+      return this.language === 'urdu'
+    }
+  },
+  methods: {
+    toggleLang() {
+      this.language = this.language === 'english' ? 'urdu' : 'english'
+    }
+  }
+}
 ```
 
-### Composition API vs. Options API
-- **Options API:** Groups component code by option types: `data()`, `methods`, `computed`, `watch`. This can lead to fragmented feature logic in large components.
-- **Composition API (Vue 3):** Uses a single `setup()` function or `<script setup>` syntax. It allows you to group code by logical features and extract stateful logic into reusable functions called **Composables** (e.g., `useAuth()`).
+##### Composition API Style (Modular and reusable)
+```vue
+<script setup>
+import { ref, computed } from 'vue'
+
+// Local state
+const language = ref('english')
+
+// Computed properties
+const isUrdu = computed(() => language.value === 'urdu')
+
+// Actions
+function toggleLang() {
+  language.value = language.value === 'english' ? 'urdu' : 'english'
+}
+</script>
+```
+:::
 
 ### External Resources
 - [Vue.js Official Guide: Reactivity in Depth](https://vuejs.org/guide/extras/reactivity-in-depth.html)
@@ -280,11 +426,342 @@ export default apiClient
 
 ---
 
+## Complete Axios Client Setup
+
+The portal needs three separate Axios instances because each actor type uses a different token and different token key in localStorage.
+
+```js
+// File: src/api/client.js
+import axios from 'axios'
+import router from '../router'
+
+const BASE = 'http://localhost:5000/api'
+
+// ── User client ─────────────────────────────────────────────────────────────
+export const userApi = axios.create({ baseURL: BASE })
+
+userApi.interceptors.request.use(config => {
+    const token = localStorage.getItem('userToken')
+    if (token) config.headers.Authorization = `Bearer ${token}`
+    return config
+})
+
+userApi.interceptors.response.use(null, err => {
+    if (err.response?.status === 401) {
+        localStorage.removeItem('userToken')
+        router.push('/login')
+    }
+    return Promise.reject(err)
+})
+
+// ── Admin client ─────────────────────────────────────────────────────────────
+export const adminApi = axios.create({ baseURL: BASE })
+
+adminApi.interceptors.request.use(config => {
+    const token = localStorage.getItem('adminToken')
+    if (token) config.headers.Authorization = `Bearer ${token}`
+    return config
+})
+
+adminApi.interceptors.response.use(null, err => {
+    if (err.response?.status === 401) {
+        localStorage.removeItem('adminToken')
+        router.push('/admin/login')
+    }
+    return Promise.reject(err)
+})
+
+// ── Committee client ──────────────────────────────────────────────────────────
+export const committeeApi = axios.create({ baseURL: BASE })
+
+committeeApi.interceptors.request.use(config => {
+    const token = localStorage.getItem('committeeToken')
+    if (token) config.headers.Authorization = `Bearer ${token}`
+    return config
+})
+```
+
+The response interceptors handle expired tokens globally. Every component that calls `userApi` automatically redirects to `/login` on 401 — no per-component handling required.
+
+---
+
+## Complete Vue Router with Guards
+
+```js
+// File: src/router/index.js
+import { createRouter, createWebHistory } from 'vue-router'
+
+// Public views
+import LandingPage from '../views/LandingPage.vue'
+import UserLogin from '../views/UserLogin.vue'
+import AdminLogin from '../views/AdminLogin.vue'
+import CommitteeLogin from '../views/CommitteeLogin.vue'
+
+// Applicant views (requires userToken)
+import AppDashboard from '../views/AppDashboard.vue'
+import SmeBusinessProfile from '../views/SmeBusinessProfile.vue'
+import SmeGrantApplication from '../views/SmeGrantApplication.vue'
+
+// Admin views (requires adminToken)
+import AdminDashboard from '../views/admin/AdminDashboard.vue'
+import AdminApplicants from '../views/admin/AdminApplicants.vue'
+
+// Committee views (requires committeeToken)
+import CommitteeDashboard from '../views/committee/CommitteeDashboard.vue'
+
+const routes = [
+    // ── Public ───────────────────────────────────────────────────────────
+    { path: '/', component: LandingPage },
+    { path: '/login', component: UserLogin },
+    { path: '/admin/login', component: AdminLogin },
+    { path: '/committee/login', component: CommitteeLogin },
+
+    // ── Applicant (requires userToken) ────────────────────────────────────
+    {
+        path: '/dashboard',
+        component: AppDashboard,
+        meta: { requiresAuth: true },
+    },
+    {
+        path: '/business-profile',
+        component: SmeBusinessProfile,
+        meta: { requiresAuth: true },
+    },
+    {
+        path: '/grant-application',
+        component: SmeGrantApplication,
+        meta: { requiresAuth: true },
+    },
+
+    // ── Admin (requires adminToken) ───────────────────────────────────────
+    {
+        path: '/admin/dashboard',
+        component: AdminDashboard,
+        meta: { requiresAdmin: true },
+    },
+    {
+        path: '/admin/applicants',
+        component: AdminApplicants,
+        meta: { requiresAdmin: true },
+    },
+
+    // ── Committee (requires committeeToken) ───────────────────────────────
+    {
+        path: '/committee/dashboard',
+        component: CommitteeDashboard,
+        meta: { requiresCommittee: true },
+    },
+]
+
+const router = createRouter({
+    history: createWebHistory(),
+    routes,
+})
+
+// Navigation guard — runs before every route change
+router.beforeEach((to, from, next) => {
+    if (to.meta.requiresAuth && !localStorage.getItem('userToken')) {
+        return next('/login')
+    }
+    if (to.meta.requiresAdmin && !localStorage.getItem('adminToken')) {
+        return next('/admin/login')
+    }
+    if (to.meta.requiresCommittee && !localStorage.getItem('committeeToken')) {
+        return next('/committee/login')
+    }
+    next()
+})
+
+export default router
+```
+
+The guard runs for every navigation. The Go backend also verifies every JWT, so if the token is valid in localStorage but expired, the Axios response interceptor handles the resulting 401.
+
+---
+
+## Composables: Reusable Stateful Logic
+
+Vue 3 composables are functions that return reactive state and methods. They let you extract logic that appears in multiple components without duplicating code.
+
+### `useAuth.js`
+
+```js
+// File: src/composables/useAuth.js
+import { computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { userApi, adminApi } from '../api/client'
+
+export function useAuth() {
+    const router = useRouter()
+
+    // Reactive reads from localStorage
+    const isLoggedIn = computed(() => !!localStorage.getItem('userToken'))
+    const isAdmin = computed(() => !!localStorage.getItem('adminToken'))
+    const language = computed(() => localStorage.getItem('language') || 'en')
+
+    async function loginUser(email, password) {
+        const { data } = await userApi.post('/login', {
+            email_address: email,
+            password: password,
+        })
+        localStorage.setItem('userToken', data.token)
+        localStorage.setItem('language', data.language)
+        router.push('/dashboard')
+    }
+
+    async function loginAdmin(username, password) {
+        const { data } = await adminApi.post('/admin/login', {
+            username,
+            password,
+        })
+        localStorage.setItem('adminToken', data.token)
+        router.push('/admin/dashboard')
+    }
+
+    function logoutUser() {
+        localStorage.removeItem('userToken')
+        router.push('/login')
+    }
+
+    function logoutAdmin() {
+        localStorage.removeItem('adminToken')
+        router.push('/admin/login')
+    }
+
+    return { isLoggedIn, isAdmin, language, loginUser, loginAdmin, logoutUser, logoutAdmin }
+}
+```
+
+### `usePagination.js`
+
+```js
+// File: src/composables/usePagination.js
+import { ref, reactive } from 'vue'
+
+export function usePagination(fetchFn, defaultPerPage = 20) {
+    const page = ref(1)
+    const perPage = ref(defaultPerPage)
+    const total = ref(0)
+    const items = ref([])
+    const loading = ref(false)
+    const error = ref('')
+
+    async function load(extraParams = {}) {
+        loading.value = true
+        error.value = ''
+        try {
+            const { data } = await fetchFn({
+                page: page.value,
+                per_page: perPage.value,
+                ...extraParams,
+            })
+            items.value = data.data
+            total.value = data.total
+        } catch (err) {
+            error.value = err.response?.data?.message || 'Failed to load data.'
+        } finally {
+            loading.value = false
+        }
+    }
+
+    function goTo(n) {
+        page.value = n
+        load()
+    }
+
+    const totalPages = ref(0)
+    // Compute total pages whenever total or perPage changes
+    // (caller uses watchEffect or computed on these)
+
+    return { page, perPage, total, items, loading, error, load, goTo }
+}
+```
+
+Usage in a component:
+```vue
+<script setup>
+import { onMounted, watch } from 'vue'
+import { usePagination } from '../composables/usePagination'
+import { adminApi } from '../api/client'
+
+const { page, items, total, loading, load, goTo } = usePagination(
+    (params) => adminApi.get('/admin/applicants/report', { params })
+)
+
+onMounted(() => load())
+</script>
+```
+
+### `useLanguage.js`
+
+```js
+// File: src/composables/useLanguage.js
+import { ref, computed } from 'vue'
+
+const labels = {
+    en: {
+        businessName:    'Business Name',
+        district:        'District',
+        grantAmount:     'Grant Amount Required',
+        submit:          'Submit Application',
+        loading:         'Loading...',
+        loginTitle:      'Sign In',
+        emailLabel:      'Email Address',
+        passwordLabel:   'Password',
+        dashboard:       'Dashboard',
+    },
+    ur: {
+        businessName:    'کاروبار کا نام',
+        district:        'ضلع',
+        grantAmount:     'گرانٹ کی مطلوبہ رقم',
+        submit:          'درخواست جمع کریں',
+        loading:         'لوڈ ہو رہا ہے...',
+        loginTitle:      'سائن ان کریں',
+        emailLabel:      'ای میل پتہ',
+        passwordLabel:   'پاس ورڈ',
+        dashboard:       'ڈیش بورڈ',
+    }
+}
+
+export function useLanguage() {
+    const lang = ref(localStorage.getItem('language') || 'en')
+
+    const t = computed(() => labels[lang.value] || labels.en)
+    const isRTL = computed(() => lang.value === 'ur')
+
+    function setLanguage(code) {
+        lang.value = code
+        localStorage.setItem('language', code)
+        // Apply RTL to the document root
+        document.documentElement.setAttribute('dir', code === 'ur' ? 'rtl' : 'ltr')
+    }
+
+    return { lang, t, isRTL, setLanguage }
+}
+```
+
+Usage in any component:
+```vue
+<script setup>
+import { useLanguage } from '../composables/useLanguage'
+const { t, isRTL } = useLanguage()
+</script>
+
+<template>
+  <div :dir="isRTL ? 'rtl' : 'ltr'">
+    <label>{{ t.businessName }}</label>
+  </div>
+</template>
+```
+
+---
+
 ## Mastery Check
 
 You understand this chapter when you can:
-- Build a route-protected Vue page.
-- Fetch backend JSON with Axios.
-- Store and read JWTs from localStorage.
-- Switch English/Urdu labels without changing stored values.
-- Use Composition API instead of Options API for new code.
+- Build a route-protected Vue page using `meta: { requiresAuth: true }` and a `beforeEach` guard.
+- Create separate Axios instances for user, admin, and committee tokens.
+- Explain what an Axios response interceptor does and why it handles 401 globally.
+- Write a composable (`useAuth`, `usePagination`, `useLanguage`) and explain why composables are better than duplicating logic in each component.
+- Store and read JWTs from localStorage using the exact key names the Go backend expects.
+- Switch English/Urdu labels using a `computed()` property wrapping a translation dictionary.

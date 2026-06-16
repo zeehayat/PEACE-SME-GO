@@ -2,239 +2,222 @@
 
 ## Purpose
 
-Replace the stub server with a production-shaped Go application. In this chapter, we will learn the basics of Go's dependency management, package visibility, custom data types, pointers, handlers, and application assembly. We will apply these concepts by building the shell that will eventually host every PEACE SME API endpoint.
-
-This chapter should answer a beginner question: "Where does code go in a Go web app?"
+Replace the stub server with a production-shaped Go application. In this chapter, we will learn Go's dependency management, package visibility, custom data types, and pointers. We will apply these concepts by defining **every single core struct** used throughout the database, configuration, and API layers of the PEACE SME Grant Portal.
 
 ---
 
 ## Foundational Concepts Explained Simply
 
 ### 1. Go Modules (`go mod`)
-In Go, a **Module** is a collection of Go packages stored in a file tree with a `go.mod` file at its root. The `go.mod` file defines the module's import path (its name) and lists the third-party dependency packages required to build the project.
-- **Initialization:** Running `go mod init peace-sme-go` creates the `go.mod` file.
-- **Adding Dependencies:** When you import a third-party library (like a router or database driver) and run `go get github.com/jackc/pgx/v5`, Go downloads the package and adds it as a dependency in `go.mod`.
-- **`go.sum` File:** Go automatically generates a `go.sum` file. This file contains the cryptographic hashes of the dependencies, ensuring that future builds download the exact same code and have not been tampered with.
+In Go, a **Module** is a collection of Go packages versioned together. The `go.mod` file at the root of your project defines the module name and tracks dependencies:
+- `go mod init <name>` initializes a module.
+- `go get <package-path>` downloads a third-party dependency.
+- `go.sum` stores cryptographic hashes of dependencies to ensure builds are reproducible and secure.
 
-Application parallel: the portal backend will need dependencies for PostgreSQL, Redis, JWTs, bcrypt, and S3. Go records those dependencies in `go.mod`, which makes the backend reproducible for you, CI, and deployment.
+:::expandable [Go Modules & Dependency Tracking]
+#### In-Depth Explanation
+Before the introduction of Modules, Go developers were forced to place all source code inside a single global workspace directory named `$GOPATH`. This made project isolation and version pinning extremely difficult.
+Go Modules solved this by introducing local dependency manifests:
+- **`go.mod`:** Declares the module's path identity (e.g. `module peace-sme-go`), the required Go language specification version, and a list of dependent packages with pinned semantic versions.
+- **`go.sum`:** Records the checksums of all direct and indirect dependencies. If a hacker alters the dependency package on a mirror server, Go's checksum validation will fail-fast, preventing code injection.
 
-### 2. Packages and Project Organization
-Every Go file must start with a package declaration (e.g., `package main` or `package config`).
-- **Visibility (Exporting):** Go uses a simple rule for access control:
-  - If a struct, function, variable, or field name starts with a **Capital Letter** (e.g., `UserID`, `FindUser()`), it is **exported** (public) and can be accessed by other packages.
-  - If it starts with a **lowercase letter** (e.g., `userID`, `findUser()`), it is **unexported** (private) and can only be accessed within the same package.
-- **Structure Convention:**
-  - **`cmd/`:** Holds entry points (main packages) that compile into executables.
-  - **`internal/`:** Packages containing business logic. Go enforces a compiler rule: packages inside `internal/` cannot be imported by external projects outside this module, protecting your internal implementation details.
-
-Application parallel: `internal/grant` should be importable by your server, but not by some unrelated external project. The portal's business rules are internal product logic, not a public Go library.
-
-### 2.1 A Beginner-Friendly Package Rule
-
-Start with packages named after responsibilities, not technical layers only:
-
-```text
-internal/user       applicant login and profile behavior
-internal/business   business profile behavior
-internal/grant      grant application and approval behavior
-internal/report     admin report queries
-internal/hfc        fraud scoring behavior
-```
-
-Inside each package, you can still separate handlers, services, repositories, and models:
-
-```text
-internal/grant/
-  handler.go
-  service.go
-  repository.go
-  model.go
-  validation.go
-```
-
-This layout helps you read one feature vertically.
-
-### 3. Structs (Custom Data Types)
-A **Struct** is a typed collection of fields. It is used to group related data together to form custom data structures (like a User profile or a Business record).
+#### Sandbox Program: Module Manifest Simulation
+Here is a simulation demonstrating how Go models depend on modules:
 
 ```go
-// Defining a Struct
-type Book struct {
-    Title  string // Exported field
-    Pages  int    // Exported field
-    author string // Unexported (private) field
+package main
+
+import (
+	"fmt"
+	"strings"
+)
+
+// Dependency models a required library recorded in go.mod
+type Dependency struct {
+	Path    string
+	Version string
+}
+
+func main() {
+	// Simulate the content of a go.mod file
+	moduleName := "peace-sme-go"
+	deps := []Dependency{
+		{Path: "github.com/jackc/pgx/v5", Version: "v5.5.0"},
+		{Path: "github.com/redis/go-redis/v9", Version: "v9.3.0"},
+	}
+
+	fmt.Printf("Module Name: %s\n", moduleName)
+	fmt.Println("--- Direct Dependencies ---")
+	for _, dep := range deps {
+		fmt.Printf("Import: %-30s | Version: %s\n", dep.Path, dep.Version)
+	}
 }
 ```
+:::
 
-#### Struct Tags
-Fields in a struct can have **tags** (strings metadata) attached to them. Tags are commonly used by encoders to map struct fields to other formats like JSON or SQL database columns:
+### 2. Packages and Visibility
+Go groups files in the same directory into a **Package**. Go uses a simple rule for code visibility:
+- **Exported (Public):** If a variable, function, struct, or field name begins with a **Capital Letter** (e.g., `UserID`, `ApproveGrant`), it is public and can be accessed by other packages importing it.
+- **Unexported (Private):** If it begins with a **lowercase letter** (e.g., `dbStatus`, `findUser`), it is private and accessible only within its own package.
+
+:::expandable [Package Layout, Imports & Visibility]
+#### In-Depth Explanation
+Go enforces a clean directory-to-package mapping:
+1. Every file in a directory must belong to the **same package** (with testing files as a slight exception).
+2. Package names should be lowercase, singular nouns (e.g. `auth`, not `authenticator` or `AuthServices`).
+3. To consume functions from another package, you use the `import` statement followed by the module path and package name:
+
 ```go
-type User struct {
-    Email string `json:"email_address"` // When serialized to JSON, this key becomes "email_address"
-}
+import "peace-sme-go/internal/config"
 ```
 
-### 4. Pointers (Memory Management)
-When you pass a variable to a function in Go, Go always creates a **copy** of that variable's value. 
-- If you pass a large struct, copying it consumes memory.
-- If you modify the struct inside the function, you are modifying the *copy*, not the original struct.
-
-**Pointers** solve this. A pointer stores the **memory address** of a variable rather than its value.
-- <b>Address-of Operator (&):</b> Placing an ampersand before a variable gets its pointer (memory address).
-- <b>Dereferencing Operator (*):</b> Placing an asterisk before a pointer variable accesses the underlying value stored at that memory address.
-- <b>Type Declaration (asterisk-Type):</b> the notation `*User` means "a pointer to a User struct".
+#### Sandbox Program: Visibility and Namespace Rules
+This sandbox demonstrates public vs private accessibility boundary checks:
 
 ```go
 package main
 
 import "fmt"
 
-type Counter struct {
-    Val int
+type DBConfig struct {
+	Host     string // Public (Capitalized)
+	Port     int    // Public (Capitalized)
+	password string // Private (lowercase, inaccessible outside package)
 }
 
-// Pass by value (copies the struct)
-func incrementValue(c Counter) {
-    c.Val++ // Modifies only the copy
-}
-
-// Pass by pointer (receives the memory address)
-func incrementPointer(c *Counter) {
-    c.Val++ // Modifies the original struct
+func NewDBConfig(host string, port int, pwd string) DBConfig {
+	return DBConfig{
+		Host:     host,
+		Port:     port,
+		password: pwd, // Accessible here because we are inside the same package
+	}
 }
 
 func main() {
-    c := Counter{Val: 10}
-    
-    incrementValue(c)
-    fmt.Println(c.Val) // Prints 10 (original was unchanged)
-    
-    incrementPointer(&c) // Pass the memory address
-    fmt.Println(c.Val) // Prints 11 (original was modified directly)
+	cfg := NewDBConfig("localhost", 5432, "supersecret")
+	
+	fmt.Printf("Connecting to %s on port %d...\n", cfg.Host, cfg.Port)
+	// fmt.Println(cfg.password) // UNCOMMENTING THIS LINE WILL CAUSE A COMPILE ERROR
+}
+```
+:::
+
+### 3. Structs (Custom Data Types)
+A **Struct** is a schema of typed fields, used to group related data.
+```go
+type Book struct {
+    Title  string // Exported
+    Pages  int    // Exported
+    author string // Unexported
 }
 ```
 
-Application parallel: when you create an HTTP handler, it often needs access to a service. You usually store a pointer:
+:::expandable [Structs & JSON Tags]
+#### In-Depth Explanation
+Structs are Go's primary mechanism for representation of domain objects, schemas, request bodies, and database mappings.
+- **Instantiation:** Structs can be allocated on the stack directly or as zero-valued objects: `u := User{}`.
+- **Struct Tags:** Are string literals attached to fields. Go's runtime library uses reflection (`reflect` package) to read these tags. For example, during JSON decoding, the `encoding/json` package matches keys in a JSON request (like `email_address`) to the struct field tagged with `json:"email_address"`.
+
+#### Sandbox Program: Serializing Structs to JSON with Tags
+This sandbox demonstrates how tags convert struct fields into customized JSON payload keys:
 
 ```go
-type Handler struct {
-    service *Service
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+)
+
+type Applicant struct {
+	ID        int64  `json:"applicant_id"`
+	FullName  string `json:"full_name"`
+	PlainPass string `json:"-"` // Prevents field from serialization
+}
+
+func main() {
+	app := Applicant{
+		ID:        1024,
+		FullName:  "Aftab Khan",
+		PlainPass: "mypassword123",
+	}
+
+	// Marshal struct to JSON bytes
+	bytes, err := json.MarshalIndent(app, "", "  ")
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+
+	fmt.Println("Serialized JSON Payload:")
+	fmt.Println(string(bytes)) // Note that PlainPass is completely omitted
 }
 ```
+:::
 
-Each request uses the same handler instance and the same service dependencies. You do not copy the service for every request.
+### 4. Pointers (Memory Management)
+In Go, passing a variable to a function copies its value. If the struct is large, copying it wastes memory. If you modify it inside the function, the caller's copy is unaffected.
+- **Pointers** store the **memory address** of a variable instead of its value.
+- <b>Address-of Operator (&):</b> Prefixing a variable with `&` returns its memory address (e.g., `&user`).
+- <b>Dereferencing Operator (asterisk):</b> Prefixing a pointer with the asterisk character (`*`) reads the value at that address.
+- <b>Type Declaration (asterisk-Type):</b> Prefixing a type name with the asterisk character (such as `*User`) declares a pointer type that references the original struct.
 
-### 5. HTTP Handlers
+:::expandable [Pointers & Memory Referencing]
+#### In-Depth Explanation
+Understanding Go's memory allocation model is crucial:
+1. **Stack vs Heap:** Stack allocation is extremely fast and handled automatically. When a variable's address is shared outside the current function execution frame (escape analysis), the compiler automatically allocates it to the **Heap**.
+2. **Nil Pointers:** Declaring a pointer without assigning it leaves it empty: `var u *User` (which is `nil`). Trying to read or write fields on a `nil` pointer triggers a runtime crash (**panic: runtime error: invalid memory address or nil pointer dereference**). Always verify pointer variables are not `nil` before usage.
 
-In Go's standard library, a handler is any value that can serve an HTTP request:
+#### Sandbox Program: Pointers and Memory Address Referencing
+This sandbox shows how pointers manipulate values at identical memory addresses:
 
 ```go
-type Handler interface {
-    ServeHTTP(ResponseWriter, *Request)
+package main
+
+import "fmt"
+
+type Profile struct {
+	District string
+}
+
+// Modifies the original profile directly via pointer dereference
+func changeDistrict(p *Profile, newDist string) {
+	if p == nil {
+		return // Avoid nil pointer panic
+	}
+	p.District = newDist
+}
+
+func main() {
+	p := Profile{District: "Peshawar"}
+	fmt.Println("Original District:", p.District)
+
+	// Pass the memory address using & operator
+	changeDistrict(&p, "Swat")
+	fmt.Println("Modified District:", p.District)
+	
+	// Inspect the raw memory address
+	fmt.Printf("Memory address of struct: %p\n", &p)
 }
 ```
-
-Most beginner code starts with:
-
-```go
-func healthHandler(w http.ResponseWriter, r *http.Request) {
-    w.Write([]byte("ok"))
-}
-```
-
-For the portal, move toward method handlers:
-
-```go
-func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
-    // decode JSON, call service, write response
-}
-```
-
-Application parallel: every API endpoint in `Claude.md` eventually becomes one handler method.
-
-### External Resources
-- [Go Dev: Tutorial on Go Modules](https://go.dev/doc/tutorial/database-access)
-- [A Tour of Go: Structs](https://go.dev/tour/moretypes/2)
-- [A Tour of Go: Pointers](https://go.dev/tour/moretypes/1)
+:::
 
 ---
 
-## Project Implementation: Build the Server Skeleton First
+## Phased Struct Implementation Guide
 
-The first backend milestone should be small:
-
-```text
-cmd/server/main.go
-internal/app/app.go
-internal/config/config.go
-internal/httpx/json.go
-internal/health/handler.go
-```
-
-### `main.go` Should Stay Boring
-
-`main.go` should not contain grant rules, SQL strings, JWT parsing, or S3 logic. It should compose the program:
-
-```go
-func main() {
-    cfg, err := config.Load()
-    if err != nil {
-        log.Fatal(err)
-    }
-
-    app, err := app.New(cfg)
-    if err != nil {
-        log.Fatal(err)
-    }
-
-    if err := app.Run(context.Background()); err != nil {
-        log.Fatal(err)
-    }
-}
-```
-
-Application parallel: when you later add `/api/grant`, `main.go` should barely change. You add a grant package and register its routes inside the app assembly.
-
-### JSON Helpers
-
-Most PEACE SME endpoints return JSON. Add one helper early:
-
-```go
-func WriteJSON(w http.ResponseWriter, status int, value any) {
-    w.Header().Set("Content-Type", "application/json")
-    w.WriteHeader(status)
-    _ = json.NewEncoder(w).Encode(value)
-}
-```
-
-And one error helper:
-
-```go
-func WriteError(w http.ResponseWriter, status int, code string, message string) {
-    WriteJSON(w, status, map[string]string{
-        "error": code,
-        "message": message,
-    })
-}
-```
-
-Application parallel: login, business profile, grant submission, and admin reports should all use the same response-writing helpers.
-
-## Project Implementation: Defining the Application Models (Structs)
-
-Now we will create the core models for the PEACE SME Grant Portal. We will write them in a centralized location first, so you can practice struct layouts, field types, nullable values, and JSON tags.
+To master structs, we will now define **every core data structure** required by the PEACE SME Grant Portal.
 
 Create a file named [internal/db/models.go](file:///var/www/peace-sme-go/internal/db/models.go) to declare all structs.
 
 ### 1. Database Nullable Types
-In PostgreSQL, fields can be `NULL`. Standard Go primitive types like `string` or `int` cannot hold `nil`.
-- To scan nullable database columns safely, Go provides database wrappers under the standard `database/sql` package: `sql.NullString`, `sql.NullInt64`, `sql.NullBool`, `sql.NullTime`.
-- When using these, access the value via `.String` or `.Int64` after checking if `.Valid` is true.
+PostgreSQL columns can contain `NULL` values. Standard Go types (like `string` or `int64`) cannot hold `nil`.
+- We use the standard library `database/sql` types: `sql.NullString`, `sql.NullInt64`, `sql.NullFloat64`, `sql.NullBool`, and `sql.NullTime`.
+- To access values, inspect `.Valid` first, then access the typed field (e.g., `name.String`).
 
-### 2. Complete Models File Boilerplate
+### 2. Database Entity Structs
 
 ```go
-// File: internal/db/models.go
 package db
 
 import (
@@ -243,11 +226,11 @@ import (
 	"time"
 )
 
-// User represents a registered applicant or admin user.
+// User models the 'users' table, storing applicant and admin authentication credentials.
 type User struct {
 	UserID            int64          `json:"user_id"`
 	EmailAddress      string         `json:"email_address"`
-	HashedPassword    string         `json:"-"` // "-" prevents password hash from rendering in JSON
+	HashedPassword    string         `json:"-"` // Prevents password hashes from encoding in JSON
 	FirstName         sql.NullString `json:"first_name"`
 	LastName          sql.NullString `json:"last_name"`
 	MiddleName        sql.NullString `json:"middle_name"`
@@ -255,64 +238,64 @@ type User struct {
 	Language          sql.NullString `json:"language"`
 	Gender            sql.NullString `json:"gender"`
 	MobileNo          sql.NullString `json:"mobile_no"`
-	WhatsappNumber    sql.NullString `json:"whatsapp_number"`
+	WhatsappNo        sql.NullString `json:"whatsapp_no"`
 	TermsAccepted     bool           `json:"terms_accepted"`
 	Status            string         `json:"status"` // 'blocked' | 'unblocked'
 	LastLoginIP       sql.NullString `json:"last_login_ip"`
-	DeviceFingerprint sql.NullString `json:"device_fingerprint"`
+	DeviceFingerPrint sql.NullString `json:"device_fingerprint"`
 	CreatedAt         time.Time      `json:"created_at"`
 }
 
-// Business represents the applicant's business profile.
+// Business models the 'businesses' table, storing profile details.
 type Business struct {
-	BusinessID                   int64           `json:"business_id"`
-	UserID                       int64           `json:"user_id"`
-	NameOfBusiness               sql.NullString  `json:"name_of_business"`
-	BusinessRegistrationNumber   sql.NullString  `json:"business_registration_number"`
-	BusinessRegistrationDate     sql.NullTime    `json:"business_registration_date"`
+	BusinessID                    int64           `json:"business_id"`
+	UserID                        int64           `json:"user_id"`
+	NameOfBusiness                sql.NullString  `json:"name_of_business"`
+	BusinessRegistrationNumber    sql.NullString  `json:"business_registration_number"`
+	BusinessRegistrationDate      sql.NullTime    `json:"business_registration_date"`
 	BusinessRegistrationAuthority json.RawMessage `json:"business_registration_authority"` // JSONB Array
-	OtherAuthorityText           sql.NullString  `json:"other_authority_text"`
-	BusinessFullAddress          sql.NullString  `json:"business_full_address"`
-	SocialMediaPage              sql.NullString  `json:"social_media_page"`
-	SocialMediaPage2             sql.NullString  `json:"social_media_page_2"`
-	SocialMediaPage3             sql.NullString  `json:"social_media_page_3"`
-	SocialMediaPage4             sql.NullString  `json:"social_media_page_4"`
-	MaleEmployees                sql.NullInt64   `json:"male_employees"`
-	FemaleEmployees              sql.NullInt64   `json:"female_employees"`
-	BusinessLocationDistrict     sql.NullString  `json:"business_location_district"`
-	BusinessSector               sql.NullString  `json:"business_sector"`
-	HowDidYouHear                sql.NullString  `json:"how_did_you_hear"`
-	HasSRSPRelation              bool            `json:"has_srsp_relation"`
-	SRSPRelativesData            json.RawMessage `json:"srsp_relatives_data"` // JSONB Array
-	CreatedAt                    time.Time       `json:"created_at"`
+	OtherAuthorityText            sql.NullString  `json:"other_authority_text"`
+	BusinessFullAddress           sql.NullString  `json:"business_full_address"`
+	SocialMediaPage               sql.NullString  `json:"social_media_page"`
+	SocialMediaPage2              sql.NullString  `json:"social_media_page_2"`
+	SocialMediaPage3              sql.NullString  `json:"social_media_page_3"`
+	SocialMediaPage4              sql.NullString  `json:"social_media_page_4"`
+	MaleEmployees                 sql.NullInt64   `json:"male_employees"`
+	FemaleEmployees               sql.NullInt64   `json:"female_employees"`
+	BusinessLocationDistrict      sql.NullString  `json:"business_location_district"`
+	BusinessSector                sql.NullString  `json:"business_sector"`
+	HowDidYouHear                 sql.NullString  `json:"how_did_you_hear"`
+	HasSRSPRelation               bool            `json:"has_srsp_relation"`
+	SRSPRelativesData             json.RawMessage `json:"srsp_relatives_data"` // JSONB Array
+	CreatedAt                     time.Time       `json:"created_at"`
 }
 
-// BusinessDocument represents uploaded files (e.g., CNIC scans, bank statements).
+// BusinessDocument models uploaded files linked to businesses.
 type BusinessDocument struct {
 	DocumentID   int64     `json:"document_id"`
 	BusinessID   int64     `json:"business_id"`
 	DocumentType string    `json:"document_type"`
 	FileName     string    `json:"file_name"`
-	FilePath     string    `json:"file_path"` // Public S3 URL
+	FilePath     string    `json:"file_path"`
 	MIMEType     string    `json:"mime_type"`
 	CreatedAt    time.Time `json:"created_at"`
 }
 
-// FinancedItem represents an item requested within a grant application.
+// FinancedItem is a nested structure stored as JSONB in the 'grants' table.
 type FinancedItem struct {
 	Item          string  `json:"item"`
 	Quantity      int     `json:"quantity"`
 	EstimatedCost float64 `json:"estimated_cost"`
 }
 
-// SRSPRelative represents a relative working at SRSP.
+// SRSPRelative is a nested structure stored as JSONB in the 'grants' table.
 type SRSPRelative struct {
 	Name     string `json:"name"`
 	Position string `json:"position"`
 	Office   string `json:"office"`
 }
 
-// Grant represents the full grant application form.
+// Grant models the complete grant application workflow.
 type Grant struct {
 	GrantID                    int64           `json:"grant_id"`
 	UserID                     int64           `json:"user_id"`
@@ -335,7 +318,7 @@ type Grant struct {
 	ApprovalReason             sql.NullString  `json:"approval_reason"`
 	ApprovedAt                 sql.NullTime    `json:"approved_at"`
 	ApprovedBy                 sql.NullString  `json:"approved_by"`
-	HFCStatus                  string          `json:"hfc_status"` // 'HFC_Pending', 'Clear', etc.
+	HFCStatus                  string          `json:"hfc_status"`
 	HFCScore                   int             `json:"hfc_score"`
 	HFCRiskLevel               string          `json:"hfc_risk_level"`
 	HFCLastEvaluatedAt         sql.NullTime    `json:"hfc_last_evaluated_at"`
@@ -347,16 +330,36 @@ type Grant struct {
 	NTNRegistrationNo          sql.NullString  `json:"ntn_registration_no"`
 	TaxFilerStatus             sql.NullString  `json:"tax_filer_status"`
 	WorkingCapital             bool            `json:"working_capital"`
-	FinancedItems              json.RawMessage `json:"financed_items"` // Scans nested FinancedItem slice
+	FinancedItems              json.RawMessage `json:"financed_items"`
 	ExpectedProductionIncrease sql.NullString  `json:"expected_production_increase"`
 	EmploymentGrid             json.RawMessage `json:"employment_grid"`
 	DeclarationAccepted        bool            `json:"declaration_accepted"`
 	DeclarationName            sql.NullString  `json:"declaration_name"`
 	HasSRSPRelative            bool            `json:"has_srsp_relative"`
-	SRSPRelatives              json.RawMessage `json:"srsp_relatives"` // Scans nested SRSPRelative slice
+	SRSPRelatives              json.RawMessage `json:"srsp_relatives"`
 }
 
-// HFCEvaluation holds audit records of run fraud scoring rules.
+// GrantMedia models files associated with a grant.
+type GrantMedia struct {
+	MediaID   int64     `json:"media_id"`
+	GrantID   int64     `json:"grant_id"`
+	MediaType string    `json:"media_type"`
+	FileName  string    `json:"file_name"`
+	FilePath  string    `json:"file_path"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// GrantApprovalLog audits administrative approval decisions.
+type GrantApprovalLog struct {
+	LogID          int64     `json:"log_id"`
+	UserID         int64     `json:"user_id"`
+	ApprovedBy     string    `json:"approved_by"`
+	ApprovedAmount float64   `json:"approved_amount"`
+	Reason         string    `json:"reason"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
+// HFCEvaluation audits fraud scoring rule evaluations.
 type HFCEvaluation struct {
 	EvaluationID int64     `json:"evaluation_id"`
 	UserID       int64     `json:"user_id"`
@@ -364,6 +367,142 @@ type HFCEvaluation struct {
 	RiskLevel    string    `json:"risk_level"`
 	RuleDetails  string    `json:"rule_details"` // JSON string breakdown
 	EvaluatedAt  time.Time `json:"evaluated_at"`
+}
+
+// HFCReviewAction models HFC clear/failed status changes by admin.
+type HFCReviewAction struct {
+	ActionID    int64     `json:"action_id"`
+	UserID      int64     `json:"user_id"`
+	ActionType  string    `json:"action_type"`
+	Comment     string    `json:"comment"`
+	PerformedBy string    `json:"performed_by"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+// HFCRuleConfig stores weights for the deterministic scoring engine.
+type HFCRuleConfig struct {
+	RuleKey     string    `json:"rule_key"`
+	Weight      int       `json:"weight"`
+	Description string    `json:"description"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+// Update represents public system announcements.
+type Update struct {
+	UpdateID  int64     `json:"update_id"`
+	Title     string    `json:"title"`
+	Content   string    `json:"content"`
+	IsUrgent  bool      `json:"is_urgent"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// FAQ represents database elements for the FAQ bot.
+type FAQ struct {
+	FAQID     int64     `json:"faq_id"`
+	Question  string    `json:"question"`
+	Answer    string    `json:"answer"`
+	Keywords  string    `json:"keywords"`
+	Language  string    `json:"language"`
+	CreatedAt time.Time `json:"created_at"`
+}
+```
+
+### 3. Application Configuration Structs
+
+```go
+package config
+
+// Config models application environment variables.
+type Config struct {
+	Port                  int
+	DatabaseURL           string
+	RedisURL              string
+	JWTSecret             string
+	GrantApplicationOpen  bool
+	GrantRequireSelection bool
+	HFCShadowMode         bool
+	CachePrefix           string
+	AllowedCountryCodes   map[string]bool
+	AdminUsers            []AdminUser
+}
+
+// AdminUser matches the schema of ADMIN_USERS_JSON configuration values.
+type AdminUser struct {
+	Username         string `json:"username"`
+	PasswordHash     string `json:"password_hash"`
+	Role             string `json:"role"`
+	CanApproveGrants bool   `json:"can_approve_grants"`
+}
+```
+
+### 4. Authentication Structs
+
+```go
+package security
+
+import "github.com/golang-jwt/jwt/v5"
+
+// UserClaims models custom payload claims for JWT authentication.
+type UserClaims struct {
+	UserID int64 `json:"user_id"`
+	jwt.RegisteredClaims
+}
+
+// AdminClaims models claims for administrative access.
+type AdminClaims struct {
+	Username   string `json:"admin_username"`
+	Role       string `json:"role"`
+	IsAdmin    bool   `json:"is_admin"`
+	IsApprover bool   `json:"is_approver"`
+	jwt.RegisteredClaims
+}
+
+// Identity matches the context object set by auth middlewares.
+type Identity struct {
+	UserID        int64
+	AdminUsername string
+	Role          string
+	IsAdmin       bool
+	IsApprover    bool
+}
+```
+
+### 5. DTO (Data Transfer Object) Structs
+
+```go
+package dto
+
+// LoginRequest models incoming user credential JSON bodies.
+type LoginRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+// RegisterRequest models applicant signup registration requests.
+type RegisterRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+	CNIC     string `json:"cnic"`
+	Name     string `json:"name"`
+	Gender   string `json:"gender"`
+}
+
+// BusinessProfileRequest represents payloads to create/update business profiles.
+type BusinessProfileRequest struct {
+	NameOfBusiness               string   `json:"name_of_business"`
+	BusinessRegistrationNumber    string   `json:"business_registration_number"`
+	BusinessRegistrationAuthority []string `json:"business_registration_authority"`
+	BusinessFullAddress           string   `json:"business_full_address"`
+	BusinessLocationDistrict      string   `json:"business_location_district"`
+	BusinessSector                string   `json:"business_sector"`
+}
+
+// GrantApplicationRequest models submitted grant details.
+type GrantApplicationRequest struct {
+	GrantRequired    float64 `json:"grant_required"`
+	ContributionType string  `json:"contribution_type"`
+	FinancialAmount  float64 `json:"financial_amount"`
+	InKindDetails    string  `json:"inkind_details"`
 }
 ```
 
@@ -402,63 +541,11 @@ This style keeps framework magic low while learning Go.
 
 ---
 
-## Practical Examples
-
-### Example: Creating a Bootstrappable Main Package
-We compile our server bootstrapping code inside `/cmd/server/main.go`. In the example below, we initialize a server struct passing it by pointer:
-
-```go
-// File: cmd/server/main.go
-package main
-
-import (
-	"log"
-	"net/http"
-	"time"
-)
-
-type Server struct {
-	Addr string
-}
-
-// NewServer allocates a server struct and returns a pointer to it.
-func NewServer(addr string) *Server {
-	return &Server{Addr: addr}
-}
-
-func (s *Server) Start() error {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/api/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`{"status":"healthy"}`))
-	})
-
-	srv := &http.Server{
-		Addr:         s.Addr,
-		Handler:      mux,
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 5 * time.Second,
-	}
-
-	log.Printf("Bootstrapping server on %s", s.Addr)
-	return srv.ListenAndServe()
-}
-
-func main() {
-	// Allocate server using pointer construct
-	srv := NewServer(":8080")
-	if err := srv.Start(); err != nil {
-		log.Fatalf("Server startup failed: %v", err)
-	}
-}
-```
-
----
-
 ## Mastery Check
 
 You understand this chapter when you can:
-- Explain why we compile executables in `cmd/` and put logic in `internal/`.
-- Initialize a Go module and fetch libraries.
-- Define a custom struct with JSON tags.
-- Explain the difference between passing a struct by value and passing it by pointer.
-- Use `sql.NullString` to parse nullable database fields.
+- Explain what Go Modules are and how `go.mod` is used.
+- Explain Go package visibility rules.
+- Define a custom struct with JSON tags and explain why tag values are critical.
+- Use pointers to share memory resources cleanly.
+- Choose between Go value and pointer receiver models.

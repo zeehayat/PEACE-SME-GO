@@ -11,55 +11,301 @@ Application parallel: this chapter builds the security boundary for both applica
 ## Foundational Concepts Explained Simply
 
 ### 1. First-Class Functions & Closures
-In Go, functions are **first-class citizens**, meaning they behave like any other value:
-- You can assign a function to a variable.
-- You can pass a function as an argument to another function.
-- You can return a function from a function.
 
-A **Closure** is an anonymous function that references variables from outside its immediate body. The function "closes over" those variables, carrying them along wherever it is passed.
+:::expandable [First-Class Functions & Closures]
+#### In-Depth Explanation
+In Go, functions are **first-class citizens**, meaning they are treated like any other value type:
+* They can be assigned to variables.
+* They can be passed as arguments to other functions.
+* They can be returned as output values from other functions.
+* **Closures:** A closure is an anonymous function that references (captures) variables from outside its immediate scope. The function "closes over" these variables, keeping them alive and carrying them around as long as the closure exists.
+* **Middleware Signature:** In Go, HTTP middleware uses closures to wrap handlers: `func(http.Handler) http.Handler`. The outer function accepts a dependency (like a configuration or database helper) and returns a closure that wraps the subsequent handler in the pipeline.
 
-Here is an example demonstrating a closure that returns a custom greeting handler:
+#### Sandbox Program: Middleware Logger Closure
+This sandbox demonstrates how to use closures to build an HTTP middleware decorator that injects logging capabilities around a standard handler function:
 
 ```go
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
-// GreetingGenerator returns a function that takes a name string
-func GreetingGenerator(prefix string) func(string) string {
-    // This anonymous function is a closure because it references 'prefix'
-    return func(name string) string {
-        return fmt.Sprintf("%s, %s!", prefix, name)
-    }
+// MockResponseWriter simulates http.ResponseWriter
+type MockResponseWriter struct {
+	Status int
+}
+
+func (m *MockResponseWriter) WriteHeader(status int) {
+	m.Status = status
+}
+
+// HandlerFunc type matching net/http
+type HandlerFunc func(w *MockResponseWriter, path string)
+
+// LoggerMiddleware wraps a handler func inside a closure, injecting log context
+func LoggerMiddleware(environment string, next HandlerFunc) HandlerFunc {
+	return func(w *MockResponseWriter, path string) {
+		start := time.Now()
+		fmt.Printf("[%s] Incoming Request: %s\n", environment, path)
+		
+		// Execute the wrapped handler
+		next(w, path)
+		
+		fmt.Printf("[%s] Completed Request in %s. Status: %d\n", 
+			environment, time.Since(start), w.Status)
+	}
 }
 
 func main() {
-    sayHello := GreetingGenerator("Hello")
-    sayUrdu := GreetingGenerator("اسلام علیکم")
+	// A simple mock HTTP handler
+	welcomeHandler := func(w *MockResponseWriter, path string) {
+		time.Sleep(10 * time.Millisecond) // Simulate work
+		w.WriteHeader(200)
+		fmt.Println(" -> Executed Welcome Handler: Hello from PEACE SME!")
+	}
 
-    fmt.Println(sayHello("Aftab")) // Prints "Hello, Aftab!"
-    fmt.Println(sayUrdu("Aftab"))  // Prints "اسلام علیکم, Aftab!"
+	// Wrap the handler with our closure-based middleware
+	devPipeline := LoggerMiddleware("DEVELOPMENT", welcomeHandler)
+
+	w := &MockResponseWriter{}
+	devPipeline(w, "/api/dashboard")
 }
 ```
+:::
 
 ### 2. Context (`context.Context`)
-When an HTTP request enters a Go server, it creates a request-specific lifecycle.
-- Go uses `context.Context` to propagate deadlines, cancellation signals, and request-scoped values down the call stack (e.g., from middleware to handlers to repositories).
-- **Injecting values:** Use `context.WithValue(parentContext, key, value)`. Contexts are immutable; this returns a *new* child context containing the key-value pair.
-- **Reading values:** Use `ctx.Value(key)` to fetch the value.
-  > [!TIP]
-  > Always declare a custom, unexported type for context keys to prevent other packages from accidentally overwriting your values.
+
+:::expandable [Go Context & Request-Scoped Values]
+#### In-Depth Explanation
+When a web request is processed by a Go server, the request traverses a pipeline of middleware and handlers.
+* **Request Lifecycle:** Go's `context.Context` propagates deadlines, cancellation signals, and request-scoped values down the call stack.
+* **Injecting Values:** Use `context.WithValue(parent, key, value)`. Because contexts are immutable, this returns a *new* child context carrying the key-value pair.
+* **Type-Safe Key Rule:** Always declare a custom, unexported type for context keys (e.g. `type contextKey struct{}`) rather than using raw strings. This prevents other packages from accidentally overwriting your context values.
+* **Extraction:** Use `ctx.Value(key)` and convert the returned `interface{}` to the concrete target type using a type assertion `v.(Type)`.
+
+#### Sandbox Program: Type-Safe Request Context Propagation
+This sandbox simulates request context propagation. It injects a user identity structure, passes the context down, and safely retrieves it using unexported keys:
 
 ```go
-type contextKey string
-const UserKey contextKey = "user_id"
+package main
 
-// Injecting
-ctx := context.WithValue(r.Context(), UserKey, 42)
+import (
+	"context"
+	"fmt"
+)
 
-// Extracting
-userID := ctx.Value(UserKey).(int) // Type assertion
+// 1. Declare unexported custom types for context keys to prevent collisions
+type contextKey struct{}
+
+var userKey = contextKey{}
+
+type UserIdentity struct {
+	UserID int64
+	Role   string
+}
+
+// InjectUser returns a new context containing the identity
+func InjectUser(ctx context.Context, id int64, role string) context.Context {
+	identity := UserIdentity{UserID: id, Role: role}
+	return context.WithValue(ctx, userKey, identity)
+}
+
+// ExtractUser retrieves the identity from context type-safely
+func ExtractUser(ctx context.Context) (UserIdentity, bool) {
+	val, ok := ctx.Value(userKey).(UserIdentity)
+	return val, ok
+}
+
+func main() {
+	// Start with a root background context
+	rootCtx := context.Background()
+
+	// Inject identity (simulating authentication middleware)
+	reqCtx := InjectUser(rootCtx, 42, "applicant")
+
+	// Call repository (simulating database query layer)
+	fetchData(reqCtx)
+}
+
+func fetchData(ctx context.Context) {
+	// Retrieve values from context
+	identity, ok := ExtractUser(ctx)
+	if !ok {
+		fmt.Println("Error: No identity found in request context!")
+		return
+	}
+
+	fmt.Printf("Database Query: Executing search scoped to User ID: %d (Role: %s)\n",
+		identity.UserID, identity.Role)
+}
 ```
+:::
+
+### 3. JSON Web Tokens (JWT)
+
+:::expandable [JSON Web Tokens (JWT) Signing & Verification]
+#### In-Depth Explanation
+A JSON Web Token (JWT) is a compact, URL-safe container used to transmit information as a JSON object.
+* **Structure:** Consists of three parts separated by dots (`.`): Header (signing algorithm), Payload (the claim details like `user_id` and expiry `exp`), and Signature.
+* **HMAC Signing (HS256):** The signature is created by hashing the base64-encoded Header and Payload together with a secret key using HMAC-SHA256.
+* **Stateless Auth:** The server does not store active tokens in a database. When a request arrives, the server recalculates the signature using its secret key. If the calculated signature matches the token's signature and the expiry `exp` time is in the future, the token is verified.
+
+#### Sandbox Program: Mock HMAC Token Signature Verification
+This program implements base64-encoded signing and signature verification using Go's built-in `crypto/hmac` package. It demonstrates how tampering with the token payload invalidates the signature:
+
+```go
+package main
+
+import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
+	"fmt"
+	"strings"
+)
+
+// Sign generates a mock JWT structure: header.payload.signature
+func Sign(payload string, secret []byte) string {
+	header := "HS256"
+	h64 := base64.RawURLEncoding.EncodeToString([]byte(header))
+	p64 := base64.RawURLEncoding.EncodeToString([]byte(payload))
+	
+	unsignedToken := h64 + "." + p64
+	
+	// Create HMAC signature
+	h := hmac.New(sha256.New, secret)
+	h.Write([]byte(unsignedToken))
+	sig := base64.RawURLEncoding.EncodeToString(h.Sum(nil))
+	
+	return unsignedToken + "." + sig
+}
+
+// Verify validates that the signature matches and has not been altered
+func Verify(token string, secret []byte) (string, error) {
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return "", fmt.Errorf("invalid token format")
+	}
+
+	unsignedToken := parts[0] + "." + parts[1]
+	providedSig := parts[2]
+
+	// Recalculate HMAC signature
+	h := hmac.New(sha256.New, secret)
+	h.Write([]byte(unsignedToken))
+	expectedSig := base64.RawURLEncoding.EncodeToString(h.Sum(nil))
+
+	// Compare signatures in constant time to prevent timing attacks
+	if !hmac.Equal([]byte(providedSig), []byte(expectedSig)) {
+		return "", fmt.Errorf("signature verification failed (tampered token)")
+	}
+
+	// Decode payload
+	payloadBytes, _ := base64.RawURLEncoding.DecodeString(parts[1])
+	return string(payloadBytes), nil
+}
+
+func main() {
+	secret := []byte("secret-portal-key-12345")
+	payload := `{"user_id":42,"role":"applicant"}`
+
+	// 1. Generate token
+	token := Sign(payload, secret)
+	fmt.Println("Generated Token:", token)
+
+	// 2. Verify valid token
+	decoded, err := Verify(token, secret)
+	if err == nil {
+		fmt.Println("Verification Success! Payload:", decoded)
+	}
+
+	// 3. Simulate tampering (change user_id from 42 to 1)
+	tamperedParts := strings.Split(token, ".")
+	tamperedPayload := base64.RawURLEncoding.EncodeToString([]byte(`{"user_id":1,"role":"applicant"}`))
+	tamperedToken := tamperedParts[0] + "." + tamperedPayload + "." + tamperedParts[2]
+	fmt.Println("\nTampered Token:", tamperedToken)
+
+	_, err = Verify(tamperedToken, secret)
+	if err != nil {
+		fmt.Println("Verification Failed as expected:", err)
+	}
+}
+```
+:::
+
+### 4. bcrypt Password Hashing
+
+:::expandable [Bcrypt Hashing & Password Safety]
+#### In-Depth Explanation
+* **Why Plain Hashing (SHA256) is Weak:** Simple cryptographic hash functions (like SHA256) are designed to be fast. An attacker who steals a database of SHA256 hashes can run billions of password guesses per second (using GPU-accelerated rainbow tables) to crack them.
+* **The Bcrypt Solution:** Bcrypt is a key-derivation function that incorporates:
+  1. **A Salt:** A random value generated automatically for each password. This ensures two users with the same password will have completely different hashes.
+  2. **Work Factor (Cost):** An exponent (e.g. 10 to 14) that controls how many iteration rounds the algorithm executes. This makes the hashing process intentionally slow (e.g. taking 100-300 milliseconds per hash). This slowness completely defeats brute-force attempts while remaining unnoticeable to individual logging-in users.
+* **Verification:** Since bcrypt hashes are salted, you can never "decrypt" the hash. Instead, you pass the candidate password and the stored hash into a comparison library. The library extracts the salt from the hash, hashes the candidate password with that salt, and compares the results.
+
+#### Sandbox Program: Bcrypt Simulation & Password Checks
+This program simulates how bcrypt uses salts to create unique hashes for identical inputs and verify password attempts securely:
+
+```go
+package main
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"math/rand"
+)
+
+// SimulatedBcryptHash creates a mock salted hash simulating bcrypt behaviour
+func SimulatedBcryptHash(password string, cost int) (string, string) {
+	// Generate a mock random salt
+	saltBytes := make([]byte, 8)
+	rand.Read(saltBytes)
+	salt := hex.EncodeToString(saltBytes)
+
+	// Hash password + salt multiple times (cost)
+	hash := password + salt
+	for i := 0; i < cost*1000; i++ {
+		h := sha256.Sum256([]byte(hash))
+		hash = hex.EncodeToString(h[:])
+	}
+	return hash, salt
+}
+
+// SimulatedBcryptVerify verifies if the candidate matches
+func SimulatedBcryptVerify(password, storedHash, salt string, cost int) bool {
+	hash := password + salt
+	for i := 0; i < cost*1000; i++ {
+		h := sha256.Sum256([]byte(hash))
+		hash = hex.EncodeToString(h[:])
+	}
+	return hash == storedHash
+}
+
+func main() {
+	password := "SecurePass123"
+	cost := 5 // Simulates work factor iterations
+
+	// 1. Hash password twice (demonstrates different salts yield different hashes)
+	hash1, salt1 := SimulatedBcryptHash(password, cost)
+	hash2, salt2 := SimulatedBcryptHash(password, cost)
+
+	fmt.Println("Password:", password)
+	fmt.Printf("Hash 1: %s (Salt: %s)\n", hash1[:32], salt1)
+	fmt.Printf("Hash 2: %s (Salt: %s)\n\n", hash2[:32], salt2)
+
+	// 2. Verify correct attempt
+	ok := SimulatedBcryptVerify("SecurePass123", hash1, salt1, cost)
+	fmt.Println("Verify with correct password:", ok)
+
+	// 3. Verify incorrect attempt
+	bad := SimulatedBcryptVerify("WrongPass", hash1, salt1, cost)
+	fmt.Println("Verify with wrong password:", bad)
+}
+```
+:::
 
 ### External Resources
 - [Go Tour: Function Closures](https://go.dev/tour/moretypes/25)

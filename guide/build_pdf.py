@@ -278,6 +278,20 @@ def build_story():
             line = lines[i]
             stripped = line.strip()
 
+            if stripped.startswith(":::expandable"):
+                flush_paragraph(story, styles, paragraph_lines)
+                match = re.search(r"\[([^\]]+)\]", stripped)
+                topic = match.group(1) if match else "Deep Dive"
+                story.append(Paragraph(f"<b>Deep Dive: {topic}</b>", styles["h3"]))
+                story.append(Spacer(1, 4))
+                i += 1
+                continue
+
+            if stripped == ":::":
+                flush_paragraph(story, styles, paragraph_lines)
+                i += 1
+                continue
+
             if stripped.startswith("```"):
                 if in_code:
                     story.append(Preformatted("\n".join(code_lines), styles["code"], maxLineLength=95))

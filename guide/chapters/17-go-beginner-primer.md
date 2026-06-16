@@ -311,6 +311,486 @@ Project task: create tests for:
 - HFC risk scoring
 - report sort allow-list
 
+## `defer` Statements
+
+Theory: `defer` schedules a function call to execute when the surrounding function returns — whether normally or due to an early `return` or `panic`.
+
+Application parallel: database rows must always be closed after a query, even if scanning fails halfway through:
+
+```go
+func (r *Repository) ListFAQs(ctx context.Context) ([]db.FAQ, error) {
+    rows, err := r.pool.Query(ctx, "SELECT faq_id, question, answer FROM faqs")
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close() // guaranteed to run, even if Scan() fails below
+
+    var faqs []db.FAQ
+    for rows.Next() {
+        var f db.FAQ
+        if err := rows.Scan(&f.FAQID, &f.Question, &f.Answer); err != nil {
+            return nil, err // rows.Close() still runs
+        }
+        faqs = append(faqs, f)
+    }
+    return faqs, rows.Err()
+}
+```
+
+Transaction rollback pattern — defer makes it impossible to forget:
+
+```go
+tx, err := pool.Begin(ctx)
+if err != nil {
+    return err
+}
+defer tx.Rollback(ctx) // safe no-op if tx.Commit() already succeeded
+
+// ... write to DB ...
+
+return tx.Commit(ctx)
+```
+
+Multiple defers run in **LIFO** order (last-in, first-out). The last `defer` statement you write runs first when the function returns.
+
+Project task: every repository method that opens rows must defer `rows.Close()`. Every service method that begins a transaction must defer `tx.Rollback(ctx)`.
+
+---
+
+## Type Assertions and Type Switches
+
+Theory: Go interfaces store a concrete value plus its type. A type assertion extracts the concrete value.
+
+Application parallel: pulling `Identity` from the request context requires a type assertion because `context.Value()` returns `interface{}`:
+
+```go
+// Safe form — never panics
+func IdentityFromContext(ctx context.Context) (Identity, bool) {
+    val, ok := ctx.Value(identityKey{}).(Identity)
+    return val, ok
+}
+
+// Unsafe form — panics if the assertion fails
+identity := ctx.Value(identityKey{}).(Identity) // do NOT use this
+```
+
+Always use the two-value form `val, ok := x.(T)` in production code. The panic form is only safe when you control both the set and get of the context value within the same package.
+
+Type switches — when a handler needs to produce different error responses for different error types:
+
+```go
+func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
+    resp, err := h.svc.Login(r.Context(), req)
+    if err != nil {
+        switch {
+        case errors.Is(err, user.ErrInvalidCredentials):
+            httpx.WriteError(w, 401, "Invalid email or password.")
+        case errors.Is(err, user.ErrUserBlocked):
+            httpx.WriteError(w, 403, "Account is blocked.")
+        default:
+            httpx.WriteError(w, 500, "Internal error.")
+        }
+        return
+    }
+    httpx.WriteJSON(w, 200, resp)
+}
+```
+
+`errors.Is` traverses wrapped error chains — it works even if the error was wrapped with `fmt.Errorf("context: %w", ErrInvalidCredentials)`.
+
+---
+
+## Custom Error Types
+
+Theory: `errors.New` creates a simple error. For errors that need to carry additional data (like field validation errors), define an error struct.
+
+Application parallel: validation errors should tell the Vue frontend exactly which fields failed:
+
+```go
+// File: internal/httpx/errors.go
+
+// ValidationError carries a map of field name -> error message.
+type ValidationError struct {
+    Fields map[string]string
+}
+
+func (e *ValidationError) Error() string {
+    return fmt.Sprintf("validation failed: %v", e.Fields)
+}
+
+// NewValidationError creates a ValidationError with initial fields.
+func NewValidationError(fields map[string]string) *ValidationError {
+    return &ValidationError{Fields: fields}
+}
+```
+
+Service usage:
+```go
+func validateGrantRequest(req GrantRequest) error {
+    errs := map[string]string{}
+    if req.GrantRequired <= 0 {
+        errs["grant_required"] = "Grant amount must be greater than zero."
+    }
+    if len(req.ExpressionOfInterest) == 0 && !req.WorkingCapital {
+        errs["expression_of_interest"] = "Select at least one purpose or check working capital."
+    }
+    if req.ApplicationDate == "" {
+        errs["application_date"] = "Application date is required."
+    }
+    if len(errs) > 0 {
+        return httpx.NewValidationError(errs)
+    }
+    return nil
+}
+```
+
+Handler extracts the specific error type:
+```go
+var ve *httpx.ValidationError
+if errors.As(err, &ve) {
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(http.StatusBadRequest)
+    json.NewEncoder(w).Encode(map[string]interface{}{
+        "message": "Validation failed.",
+        "fields":  ve.Fields,
+    })
+    return
+}
+```
+
+---
+
+## Embedded Structs
+
+Theory: Go has no classes or inheritance. Embedding lets one struct include another struct's fields and methods directly.
+
+Application parallel: Admin and Committee tokens both carry `exp` and other JWT claims via embedding `jwt.RegisteredClaims`:
+
+```go
+type UserClaims struct {
+    UserID int64 `json:"user_id"`
+    jwt.RegisteredClaims // embedded — UserClaims gets .ExpiresAt, .IssuedAt, etc.
+}
+
+type AdminClaims struct {
+    AdminUsername string `json:"admin_username"`
+    Role          string `json:"role"`
+    IsAdmin       bool   `json:"is_admin"`
+    IsApprover    bool   `json:"is_approver"`
+    jwt.RegisteredClaims // same embedding
+}
+```
+
+Because of embedding, `UserClaims` automatically satisfies `jwt.Claims` interface — no explicit method implementations needed.
+
+Field promotion: if you access `claims.ExpiresAt`, Go looks for `ExpiresAt` on `UserClaims` first, then on the embedded `RegisteredClaims`. You do not need `claims.RegisteredClaims.ExpiresAt`.
+
+---
+
+## Structured Logging with `log/slog`
+
+Theory: `fmt.Println` and `log.Printf` produce unstructured text. In production, you need structured logs — JSON lines that monitoring systems can parse, filter, and alert on.
+
+Go 1.21 introduced `log/slog` as the standard structured logger.
+
+Application parallel: every HTTP request should log method, path, status, duration, and user identity when available:
+
+```go
+// File: internal/middleware/logging.go
+package middleware
+
+import (
+    "log/slog"
+    "net/http"
+    "time"
+)
+
+func Logger(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        start := time.Now()
+        wrapped := &statusWriter{ResponseWriter: w, status: 200}
+
+        next.ServeHTTP(wrapped, r)
+
+        slog.Info("request",
+            "method",   r.Method,
+            "path",     r.URL.Path,
+            "status",   wrapped.status,
+            "duration", time.Since(start).Milliseconds(),
+            "ip",       r.RemoteAddr,
+        )
+    })
+}
+
+// statusWriter wraps http.ResponseWriter to capture the status code.
+type statusWriter struct {
+    http.ResponseWriter
+    status int
+}
+
+func (sw *statusWriter) WriteHeader(code int) {
+    sw.status = code
+    sw.ResponseWriter.WriteHeader(code)
+}
+```
+
+Configure JSON output in `main.go`:
+```go
+slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+    Level: slog.LevelInfo,
+})))
+```
+
+**What NOT to log:**
+- Passwords or password hashes
+- JWT token strings
+- CNIC numbers (PII under Pakistani law)
+- Full request bodies on auth endpoints
+
+---
+
+## Graceful Shutdown
+
+Theory: when Docker Compose stops a container, it sends `SIGTERM` to PID 1. A server that does not handle this signal will be killed mid-request, potentially leaving in-flight grant submissions incomplete.
+
+Application parallel: during a cutover deployment, the Go server gets `SIGTERM` — graceful shutdown lets the HFC scorer finish its current calculation and active applicants' form submissions complete before the process exits.
+
+```go
+// File: cmd/server/main.go
+
+package main
+
+import (
+    "context"
+    "fmt"
+    "log/slog"
+    "net/http"
+    "os"
+    "os/signal"
+    "syscall"
+    "time"
+
+    "peace-sme-go/internal/app"
+    "peace-sme-go/internal/config"
+)
+
+func main() {
+    cfg, err := config.Load()
+    if err != nil {
+        slog.Error("config load failed", "error", err)
+        os.Exit(1)
+    }
+
+    application, err := app.New(cfg)
+    if err != nil {
+        slog.Error("app init failed", "error", err)
+        os.Exit(1)
+    }
+
+    server := &http.Server{
+        Addr:         fmt.Sprintf("0.0.0.0:%d", cfg.Port),
+        Handler:      application.Router(),
+        ReadTimeout:  30 * time.Second,
+        WriteTimeout: 120 * time.Second, // bulk HTML reports can take up to 30s
+        IdleTimeout:  120 * time.Second,
+    }
+
+    // Start listening in a goroutine so main can block on signal
+    go func() {
+        slog.Info("server started", "addr", server.Addr)
+        if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+            slog.Error("server listen failed", "error", err)
+            os.Exit(1)
+        }
+    }()
+
+    // Block until SIGINT or SIGTERM
+    quit := make(chan os.Signal, 1)
+    signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+    <-quit
+
+    slog.Info("shutdown signal received, draining connections...")
+
+    // Give in-flight requests up to 30 seconds to finish
+    ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+    defer cancel()
+
+    if err := server.Shutdown(ctx); err != nil {
+        slog.Error("graceful shutdown failed", "error", err)
+    }
+
+    slog.Info("server stopped cleanly")
+}
+```
+
+---
+
+## `sync.Once` for One-Time Initialization
+
+Theory: `sync.Once` guarantees a function runs exactly once, even under concurrent access. Unlike `init()`, it runs lazily — only when needed — and uses the `sync` package's safe initialization guarantee.
+
+Application parallel: HFC rule weights are loaded from the `hfc_rule_config` database table. They do not change at runtime. Loading them once saves a database round-trip on every scoring calculation:
+
+```go
+// File: internal/hfc/config.go
+package hfc
+
+import (
+    "context"
+    "sync"
+)
+
+type RuleWeights struct {
+    DuplicateCNIC      int
+    DuplicateEmail     int
+    MissingBusiness    int
+    MissingDocuments   int
+    OutOfScopeDistrict int
+    // ... all rules
+}
+
+var (
+    weights     RuleWeights
+    weightsOnce sync.Once
+)
+
+// LoadWeights loads rule weights exactly once. Safe for concurrent callers.
+func LoadWeights(ctx context.Context, repo *Repository) error {
+    var loadErr error
+    weightsOnce.Do(func() {
+        w, err := repo.GetRuleWeights(ctx)
+        if err != nil {
+            loadErr = err
+            return
+        }
+        weights = *w
+    })
+    return loadErr
+}
+
+func GetWeights() RuleWeights {
+    return weights
+}
+```
+
+---
+
+## Complete Vertical Slice: User Profile
+
+Here is every layer for `GET /api/user/profile` — from database to HTTP to test:
+
+### Repository
+
+```go
+// internal/user/repository.go
+func (r *Repository) FindByID(ctx context.Context, userID int64) (*db.User, error) {
+    const q = `
+        SELECT user_id, email_address, first_name, last_name,
+               cnic, language, gender, mobile_no, status, created_at
+        FROM users WHERE user_id = $1`
+    row := r.pool.QueryRow(ctx, q, userID)
+    var u db.User
+    if err := row.Scan(&u.UserID, &u.EmailAddress, &u.FirstName, &u.LastName,
+        &u.CNIC, &u.Language, &u.Gender, &u.MobileNo, &u.Status, &u.CreatedAt); err != nil {
+        if err == pgx.ErrNoRows {
+            return nil, nil
+        }
+        return nil, fmt.Errorf("FindByID: %w", err)
+    }
+    return &u, nil
+}
+```
+
+### Service
+
+```go
+// internal/user/service.go
+type ProfileResponse struct {
+    UserID       int64  `json:"user_id"`
+    EmailAddress string `json:"email_address"`
+    FirstName    string `json:"first_name"`
+    LastName     string `json:"last_name"`
+    CNIC         string `json:"cnic"`
+    Language     string `json:"language"`
+    Status       string `json:"status"`
+}
+
+func (s *Service) GetProfile(ctx context.Context, userID int64) (*ProfileResponse, error) {
+    u, err := s.repo.FindByID(ctx, userID)
+    if err != nil {
+        return nil, err
+    }
+    if u == nil {
+        return nil, ErrUserNotFound
+    }
+    return &ProfileResponse{
+        UserID:       u.UserID,
+        EmailAddress: u.EmailAddress,
+        FirstName:    u.FirstName.String,
+        LastName:     u.LastName.String,
+        CNIC:         u.CNIC.String,
+        Language:     u.Language.String,
+        Status:       u.Status,
+    }, nil
+}
+```
+
+### Handler
+
+```go
+// internal/user/handler.go
+func (h *Handler) Profile(w http.ResponseWriter, r *http.Request) {
+    identity, ok := middleware.IdentityFromContext(r.Context())
+    if !ok {
+        httpx.WriteError(w, http.StatusUnauthorized, "Not authenticated.")
+        return
+    }
+    profile, err := h.svc.GetProfile(r.Context(), identity.UserID)
+    if err != nil {
+        if errors.Is(err, ErrUserNotFound) {
+            httpx.WriteError(w, http.StatusNotFound, "User not found.")
+            return
+        }
+        httpx.WriteError(w, http.StatusInternalServerError, "Internal error.")
+        return
+    }
+    httpx.WriteJSON(w, http.StatusOK, profile)
+}
+```
+
+### Test
+
+```go
+// internal/user/handler_test.go
+func TestProfile_Success(t *testing.T) {
+    // Stub service that returns a known profile
+    svc := &stubUserService{
+        profile: &ProfileResponse{UserID: 42, EmailAddress: "a@test.com", Status: "unblocked"},
+    }
+    h := NewHandler(svc)
+
+    req := httptest.NewRequest(http.MethodGet, "/api/user/profile", nil)
+    // Inject identity into context (simulating auth middleware)
+    req = req.WithContext(middleware.WithIdentity(req.Context(), middleware.Identity{UserID: 42}))
+    rr := httptest.NewRecorder()
+
+    h.Profile(rr, req)
+
+    if rr.Code != http.StatusOK {
+        t.Fatalf("expected 200, got %d", rr.Code)
+    }
+    var resp ProfileResponse
+    json.NewDecoder(rr.Body).Decode(&resp)
+    if resp.UserID != 42 {
+        t.Errorf("expected user_id 42, got %d", resp.UserID)
+    }
+}
+```
+
+When this complete slice works, you have practiced: structs, pointers, methods, interfaces, errors, context, type assertions, defer, SQL, httptest, and table-driven tests — all in a single feature.
+
+---
+
 ## Capstone Exercise
 
 Build a tiny vertical slice:

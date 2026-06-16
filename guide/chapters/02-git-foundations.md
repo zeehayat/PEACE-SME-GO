@@ -191,11 +191,189 @@ git diff path/to/file
 
 ---
 
+## Stashing: Saving Unfinished Work
+
+You are halfway through implementing the HFC scorer when a critical bug is reported in the login flow. You have uncommitted changes. You cannot switch branches cleanly. `git stash` saves your work-in-progress to a temporary stack so you can context-switch without losing anything.
+
+```bash
+# Save all uncommitted changes to the stash
+git stash push -m "WIP: HFC scorer rules 5-8"
+
+# Your working directory is now clean
+git status   # nothing to commit, working tree clean
+
+# Switch to fix the bug
+git checkout -b fix/login-blocked-users
+# ... make the fix, commit it, merge it ...
+
+# Return to your original branch
+git checkout feature/hfc-scoring
+
+# Restore your stashed work
+git stash pop
+# Your HFC changes are back in the working directory
+```
+
+Stash commands:
+```bash
+git stash list                     # see all stashed items
+git stash show -p stash@{0}        # inspect the most recent stash diff
+git stash pop                      # restore and delete most recent stash
+git stash apply stash@{1}          # restore a specific stash without deleting it
+git stash drop stash@{0}           # delete a specific stash entry
+git stash clear                    # delete all stashes
+```
+
+Rule: stash is for context switches, not long-term storage. Stashes do not survive `git clone`. If work-in-progress needs to last more than a day, commit it on a branch — even with a `[WIP]` prefix in the message.
+
+---
+
+## Interactive Staging: Committing Exactly What You Mean
+
+You have just finished a session that touched `internal/grant/handler.go`, `internal/grant/service.go`, and `internal/grant/repository.go`. These changes belong to different logical commits:
+- "Add grant validation rules" (service changes only)
+- "Add grant repository INSERT" (repository changes only)
+
+Use `git add -p` (patch mode) to stage only the lines you want:
+
+```bash
+git add -p internal/grant/service.go
+```
+
+Git will walk through each change "hunk" and ask what to do:
+```
+@@ -45,6 +45,12 @@ func (s *Service) Apply(...)
++    if req.GrantRequired <= 0 {
++        return ErrInvalidAmount
++    }
+Stage this hunk [y,n,q,a,d,/,e,?]?
+```
+
+Answer keys:
+- `y` — stage this hunk
+- `n` — skip this hunk (leave it unstaged)
+- `s` — split this hunk into smaller pieces
+- `e` — manually edit the hunk in your editor
+- `q` — quit, leaving remaining hunks unstaged
+- `?` — show help
+
+This lets you create focused commits from a messy working session without losing work.
+
+Another useful pattern — stage a complete file but exclude one method you are not ready to commit:
+
+```bash
+git add -p internal/grant/handler.go
+# Answer 'y' to all validation change hunks
+# Answer 'n' to the bulk-pdf handler hunk you are still working on
+git commit -m "Add grant application validation"
+# The bulk-pdf changes remain unstaged
+```
+
+---
+
+## Branch Naming Conventions for This Project
+
+Consistent branch names make it obvious what work is in progress at a glance:
+
+| Branch type | Format | Example |
+|---|---|---|
+| Feature | `feature/<short-description>` | `feature/user-login` |
+| Feature (chapter) | `chapter-<N>-<topic>` | `chapter-06-auth-middleware` |
+| Bug fix | `fix/<what-was-wrong>` | `fix/hfc-scoring-duplicate-cnic` |
+| Release | `release/v<major>.<minor>.<patch>` | `release/v1.0.0` |
+| Hotfix | `hotfix/<description>` | `hotfix/blocked-user-login` |
+| Experiment | `experiment/<name>` | `experiment/bulk-html-pdf` |
+
+Avoid: `my-branch`, `test`, `temp`, `aftab-working`, `final-v2`.
+
+---
+
+## Complete Login Feature Git Workflow
+
+Here is a real sequence you will use when implementing the login feature:
+
+```bash
+# Start from main
+git checkout main
+git pull origin main
+
+# Create the feature branch
+git checkout -b feature/user-login
+
+# === Commit 1: Repository layer ===
+# Write internal/user/repository.go (FindByEmail SQL query)
+git add internal/user/repository.go
+git commit -m "Add user repository with FindByEmail query"
+
+# === Commit 2: Service layer ===
+# Write internal/user/service.go (Login method with bcrypt)
+git add internal/user/service.go
+git commit -m "Add user service Login method"
+
+# === Commit 3: Handler layer ===
+# Write internal/user/handler.go (HTTP decode + error mapping)
+git add internal/user/handler.go
+git commit -m "Add POST /api/login handler"
+
+# === Commit 4: Wire into router ===
+git add internal/app/app.go
+git commit -m "Register login route in app"
+
+# === Commit 5: Tests ===
+git add internal/user/service_test.go
+git add internal/user/handler_test.go
+git commit -m "Add login tests: invalid credentials, blocked user, success"
+
+# Review the full branch before merging
+git log --oneline main..HEAD
+# a1b2c3d Add login tests
+# d4e5f6a Register login route in app
+# e7f8g9b Add POST /api/login handler
+# c1d2e3f Add user service Login method
+# a4b5c6d Add user repository with FindByEmail query
+
+git diff main...HEAD   # see everything the branch adds vs main
+```
+
+---
+
+## Exploration Commands
+
+Reading history is as important as writing it:
+
+```bash
+# Compact one-line graph of all branches
+git log --oneline --graph --all --decorate
+
+# What did a specific commit change?
+git show a1b2c3d
+
+# Who last changed this line and when?
+git blame internal/user/service.go
+
+# What changed between two commits?
+git diff HEAD~3 HEAD
+
+# Search the history for when a string was added
+git log -S "ErrUserBlocked" --oneline
+
+# Find which commit introduced a bug (binary search)
+git bisect start
+git bisect bad                  # current HEAD has the bug
+git bisect good v0.9.0          # this tag was clean
+# Git checks out middle commits, you run tests, mark good/bad
+git bisect run go test ./internal/user -run TestLogin
+git bisect reset                # finish bisect session
+```
+
+---
+
 ## Mastery Check
 
 You understand this chapter when you can:
-- Create a branch per chapter.
-- Review staged changes before committing.
-- Explain the difference between working tree, staging area, and commit history.
-- Recover from accidental staging.
-- Resolve a simple conflict without panic.
+- Create a branch per chapter and per logical feature.
+- Use `git add -p` to stage only the changes you want in a commit.
+- Use `git stash` to save unfinished work and restore it after a context switch.
+- Read `git log --oneline --graph` and describe what you see.
+- Resolve a merge conflict by editing the file and completing the merge commit.
+- Explain the difference between `merge` and `rebase` and when each is appropriate.

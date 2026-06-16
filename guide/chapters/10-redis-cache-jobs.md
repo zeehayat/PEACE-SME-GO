@@ -2,35 +2,23 @@
 
 ## Purpose
 
-Redis supports three separate concerns in this application: JSON response caching, concurrent applicant access control, and background job queues and HFC debounce. In this chapter, we will study **Concurrency in Go**, learning how to spawn lightweight processes (Goroutines), communicate safely between them (Channels), and coordinate operations using `select` blocks. We will then implement a background worker queue pool.
+Redis supports three separate concerns in this application: JSON response caching, concurrent applicant access control, and background job queues. In this chapter, we will study **Go Concurrency**, explaining lightweight threads (Goroutines), communication pipes (Channels), and select statements. We will then define **every channel and worker coordination loop** required by the portal.
 
 ---
 
 ## Foundational Concepts Explained Simply
 
 ### 1. Goroutines
-A **Goroutine** is a lightweight thread of execution managed by the Go runtime.
-- **Spawning:** Prefix any function call with the `go` keyword (e.g. `go doWork()`). This runs the function concurrently in the background.
-- **Cost:** Spawning a goroutine is extremely cheap. They start with only ~2KB of stack space and grow dynamically, allowing you to spawn tens of thousands concurrently.
 
-### 2. Channels
-In Go, instead of sharing memory between threads using complex locks, goroutines communicate by sending and receiving messages over **Channels**. Channels are type-safe conduits.
-- **Syntax:**
-  - Create: `ch := make(chan int)` (unbuffered) or `ch := make(chan int, 100)` (buffered).
-  - Send: `ch <- 42` (sends 42 into the channel).
-  - Receive: `val := <-ch` (blocks execution until a value is read from the channel).
-  - Close: `close(ch)` (notifies receivers that no more values will be sent).
-- **Blocking:** 
-  - Sends/receives on an **unbuffered** channel block until both the sender and receiver are ready.
-  - **Buffered** channels block only when the buffer is full (on sends) or empty (on receives).
+:::expandable [Goroutines: Lightweight Concurrent Threads]
+#### In-Depth Explanation
+In Go, concurrency is achieved using **Goroutines**, which are lightweight, user-space threads managed entirely by the Go runtime scheduler rather than the underlying Operating System.
+* **OS Threads vs. Goroutines:** OS threads typically consume about 1MB of memory for their stack space. In contrast, a Goroutine starts with a dynamic, resizable stack of only **2KB**.
+* **Spawning:** Prefixing any function call with the `go` keyword schedules the function to run concurrently. The current thread continues executing immediately without blocking.
+* **Go Scheduler:** Go uses an M:N scheduler, multiplexing thousands of active Goroutines (N) onto a small number of physical OS threads (M). This eliminates the expensive context-switching overhead of OS thread shifts.
 
-### 3. Select Statements
-The `select` statement lets a goroutine wait on multiple channel operations.
-- It blocks until one of its cases is ready to execute.
-- If multiple cases are ready, it chooses one pseudo-randomly.
-- You can add a `default` case to make operations non-blocking.
-
-Here is an example demonstrating goroutines, channels, and select coordination:
+#### Sandbox Program: Spawning Concurrent Tasks
+This program demonstrates spawning multiple independent background tasks concurrently using the `go` keyword and coordinates their execution using a simple time delay:
 
 ```go
 package main
@@ -40,38 +28,124 @@ import (
 	"time"
 )
 
-func worker(jobs <-chan int, results chan<- int) {
-	for job := range jobs {
-		fmt.Printf("Processing job %d\n", job)
-		time.Sleep(100 * time.Millisecond) // Simulate slow job
-		results <- job * 2                 // Send result back
-	}
+func runAuditRule(ruleName string, duration time.Duration) {
+	fmt.Printf("[HFC AUDIT] Starting risk evaluation: %s\n", ruleName)
+	time.Sleep(duration) // Simulate computational rule check
+	fmt.Printf("[HFC AUDIT] Finished risk evaluation: %s\n", ruleName)
 }
 
 func main() {
-	jobs := make(chan int, 10)
-	results := make(chan int, 10)
+	fmt.Println("Main thread: Initiating background evaluation pipeline.")
 
-	// Spawn a background worker goroutine
-	go worker(jobs, results)
+	// Spawn two background concurrent tasks
+	go runAuditRule("Verify CNIC Format", 50*time.Millisecond)
+	go runAuditRule("Check Allowed IP Region", 30*time.Millisecond)
+
+	fmt.Println("Main thread: Handlers returned immediately. Sleeping to allow worker tasks to finish...")
+	
+	// Wait long enough for both tasks to complete
+	time.Sleep(100 * time.Millisecond)
+	fmt.Println("Main thread: Shutting down.")
+}
+```
+:::
+
+### 2. Channels
+
+:::expandable [Go Channels & Synchronous Communication]
+#### In-Depth Explanation
+Go's concurrency philosophy is: *"Do not communicate by sharing memory; instead, share memory by communicating."*
+* **Channels (`chan T`):** Type-safe pipes that allow separate Goroutines to synchronize and exchange messages without explicit locks or mutexes.
+* **Buffered vs. Unbuffered:**
+  * **Unbuffered (`make(chan T)`):** Sends and receives block until both the sender and receiver are ready. This guarantees synchronous handoffs.
+  * **Buffered (`make(chan T, size)`):** Sends are non-blocking as long as the buffer is not full. Receives are non-blocking as long as the buffer is not empty.
+* **Graceful Channel Closing:** The sender can close a channel using `close(ch)`. Receivers can test if a channel is closed using the comma-ok idiom: `val, ok := <-ch`. If `ok` is `false`, the channel has been drained and closed.
+
+#### Sandbox Program: Channel Coordination and Draining
+This program runs a worker that receives work from a buffered channel and communicates results back, showing how channel closes signal completion:
+
+```go
+package main
+
+import (
+	"fmt"
+)
+
+func jobProcessor(jobs <-chan int, results chan<- int) {
+	for job := range jobs {
+		// Process job
+		double := job * 2
+		results <- double
+	}
+	close(results) // Close results channel when all jobs are processed
+}
+
+func main() {
+	jobs := make(chan int, 3)
+	results := make(chan int, 3)
+
+	// Start processor
+	go jobProcessor(jobs, results)
 
 	// Send 3 jobs
-	for i := 1; i <= 3; i++ {
-		jobs <- i
-	}
-	close(jobs) // Close jobs to signal worker to finish loop
+	jobs <- 10
+	jobs <- 20
+	jobs <- 30
+	close(jobs) // Signal that no more jobs will be sent
 
-	// Collect results using select
-	for i := 1; i <= 3; i++ {
+	// Read results
+	for res := range results {
+		fmt.Println("Job Result Received:", res)
+	}
+	fmt.Println("All channel items processed successfully.")
+}
+```
+:::
+
+### 3. Select Statements
+
+:::expandable [Select Block Coordination & Timeouts]
+#### In-Depth Explanation
+The `select` statement enables a Goroutine to wait on multiple channel communication operations simultaneously.
+* **Multiplexing:** It blocks until one of its cases is ready to send or receive. If multiple cases are ready, it picks one at random.
+* **Timeouts:** Combined with `time.After(duration)`, it prevents deadlocks by establishing a maximum wait limit. If no channel responds within the limit, the timeout case fires.
+* **Non-blocking Select:** A `default` case causes the `select` statement to proceed immediately without blocking if no other channels are ready.
+
+#### Sandbox Program: Job Queue Coordination with Timeout
+This program uses a `select` statement to process messages from multiple queues and includes a timeout protection block:
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main() {
+	emailQueue := make(chan string, 1)
+	hfcQueue := make(chan string, 1)
+
+	// Simulate background worker loading
+	go func() {
+		time.Sleep(20 * time.Millisecond)
+		emailQueue <- "Welcome Email for User 42"
+	}()
+
+	// Read loop with timeout
+	for i := 0; i < 2; i++ {
 		select {
-		case res := <-results:
-			fmt.Println("Result received:", res)
-		case <-time.After(500 * time.Millisecond):
-			fmt.Println("Timeout waiting for result!")
+		case email := <-emailQueue:
+			fmt.Println("Processed Queue Item:", email)
+		case hfc := <-hfcQueue:
+			fmt.Println("Processed Queue Item:", hfc)
+		case <-time.After(50 * time.Millisecond):
+			fmt.Println("Job dispatch timed out!")
 		}
 	}
 }
 ```
+:::
 
 ### External Resources
 - [A Tour of Go: Goroutines](https://go.dev/tour/concurrency/1)
@@ -80,9 +154,130 @@ func main() {
 
 ---
 
+## Phased Concurrency Implementation Guide
+
+To master concurrency, we will now define **all channel-based background workers and job queues** required by the PEACE SME Grant Portal.
+
+Create a file named [internal/worker/queues.go](file:///var/www/peace-sme-go/internal/worker/queues.go) to declare these structures.
+
+### 1. Job Structs
+First, define the structures representing background tasks:
+
+```go
+package worker
+
+// EmailJob wraps the parameters needed to send welcome and approval alerts.
+type EmailJob struct {
+	RecipientEmail string `json:"recipient_email"`
+	Subject        string `json:"subject"`
+	Body           string `json:"body"`
+}
+
+// HFCJob wraps parameters needed to trigger HFC fraud risk scoring.
+type HFCJob struct {
+	UserID    int64 `json:"user_id"`
+	IsTriggeredByAdmin bool `json:"is_triggered_by_admin"`
+}
+```
+
+### 2. The Worker Manager
+The `Manager` struct acts as a coordinator, maintaining the channels and controlling worker lifecycles:
+
+```go
+import (
+	"context"
+	"log"
+	"sync"
+)
+
+// Manager coordinates job queues and background execution routines.
+type Manager struct {
+	EmailQueue chan EmailJob // Buffered channel for emails
+	HFCQueue   chan HFCJob   // Buffered channel for HFC jobs
+	wg         sync.WaitGroup
+	shutdown   chan struct{}
+}
+
+// NewManager initializes the queues with buffer sizes.
+func NewManager(bufferSize int) *Manager {
+	return &Manager{
+		EmailQueue: make(chan EmailJob, bufferSize),
+		HFCQueue:   make(chan HFCJob, bufferSize),
+		shutdown:   make(chan struct{}),
+	}
+}
+
+// Start begins background execution loop goroutines.
+func (m *Manager) Start(ctx context.Context) {
+	// Start email processor worker
+	m.wg.Add(1)
+	go m.emailWorker(ctx)
+
+	// Start HFC processor worker
+	m.wg.Add(1)
+	go m.hfcWorker(ctx)
+}
+
+func (m *Manager) emailWorker(ctx context.Context) {
+	defer m.wg.Done()
+	log.Println("Email worker started.")
+
+	for {
+		select {
+		case <-ctx.Done():
+			log.Println("Email worker shutting down...")
+			return
+		case job, ok := <-m.EmailQueue:
+			if !ok {
+				return
+			}
+			m.sendEmail(job)
+		}
+	}
+}
+
+func (m *Manager) hfcWorker(ctx context.Context) {
+	defer m.wg.Done()
+	log.Println("HFC worker started.")
+
+	for {
+		select {
+		case <-ctx.Done():
+			log.Println("HFC worker shutting down...")
+			return
+		case job, ok := <-m.HFCQueue:
+			if !ok {
+				return
+			}
+			m.evaluateHFC(job)
+		}
+	}
+}
+
+func (m *Manager) sendEmail(job EmailJob) {
+	log.Printf("[EMAIL] Sending message to %s: %s", job.RecipientEmail, job.Subject)
+	// actual SMTP/Brevo integration calls...
+}
+
+func (m *Manager) evaluateHFC(job HFCJob) {
+	log.Printf("[HFC] Re-evaluating rules for User ID %d", job.UserID)
+	// actual database/HFC scoring rules checks...
+}
+
+// Stop closes channels and blocks until workers drain existing jobs safely.
+func (m *Manager) Stop() {
+	close(m.EmailQueue)
+	close(m.HFCQueue)
+	m.wg.Wait()
+	log.Println("All background queue workers stopped.")
+}
+```
+
+---
+
 ## Cache Wrapper
 
-Create a small package:
+Create a small package `internal/cache/redis.go` to wrap Redis JSON access caching:
 
 ```go
 type Cache struct {
@@ -100,214 +295,10 @@ Use the configured prefix, defaulting to `peace_sme`.
 
 ---
 
-## Cached Data
-
-Cache:
-- Updates: 3600 seconds.
-- FAQs: 300 seconds.
-- Dashboard stats: 60 seconds.
-- Report filter options: 120 seconds.
-
-Invalidate content caches after admin creates, updates, or deletes FAQs and updates.
-
----
-
-## Access Slots
-
-The Flask pipeline limits active applicants:
-- `ACCESS_CONTROL_ENABLED=1`
-- `MAX_ACTIVE_APPLICANTS=300`
-- `ACCESS_SLOT_TTL_SEC=90`
-
-In Go:
-1. Determine session ID.
-2. `SETEX peace_sme:session:<id> 90 1`
-3. Count active session keys.
-4. Return 429 if the limit is exceeded.
-
-For production scale, avoid expensive `KEYS`; prefer `SCAN` or a sorted-set design. Preserve behavior first, optimize second.
-
----
-
-## Background Jobs
-
-The original uses RQ queues:
-- `emails`
-- `hfc`
-
-In Go, choose one of two paths:
-1. Keep compatibility with existing Redis queue format while migrating gradually.
-2. Build a Go worker with explicit Redis streams/lists and migrate worker behavior too.
-
-For learning, start with an interface:
-
-```go
-type JobQueue interface {
-    EnqueueEmail(ctx context.Context, job EmailJob) error
-    EnqueueHFC(ctx context.Context, userID int64) error
-}
-```
-
-Then implement Redis behind it.
-
----
-
-## HFC Debounce
-
-Before enqueueing HFC:
-- Set a Redis debounce key for user ID.
-- If key already exists, skip enqueue.
-- TTL comes from `HFC_ENQUEUE_DEBOUNCE_SEC`, default 60.
-
----
-
-## Practical Examples
-
-### Example 1: Caching Helper with JSON Serialization
-This helper maps database objects into Redis string keys using JSON marshaling:
-
-```go
-// File: internal/cache/redis.go
-package cache
-
-import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"time"
-
-	"github.com/redis/go-redis/v9"
-)
-
-type Cache struct {
-	client *redis.Client
-	prefix string
-}
-
-func NewCache(client *redis.Client, prefix string) *Cache {
-	return &Cache{client: client, prefix: prefix}
-}
-
-func (c *Cache) makeKey(key string) string {
-	return fmt.Sprintf("%s:%s", c.prefix, key)
-}
-
-// GetJSON retrieves a cached item and unmarshals it into dst.
-func (c *Cache) GetJSON(ctx context.Context, key string, dst interface{}) (bool, error) {
-	fullKey := c.makeKey(key)
-	val, err := c.client.Get(ctx, fullKey).Result()
-	if err == redis.Nil {
-		return false, nil // Cache miss
-	} else if err != nil {
-		return false, fmt.Errorf("redis read error: %w", err)
-	}
-
-	if err := json.Unmarshal([]byte(val), dst); err != nil {
-		return false, fmt.Errorf("failed to unmarshal cached data: %w", err)
-	}
-
-	return true, nil // Cache hit
-}
-
-// SetJSON marshals an item and stores it with a TTL.
-func (c *Cache) SetJSON(ctx context.Context, key string, value interface{}, ttl time.Duration) error {
-	fullKey := c.makeKey(key)
-	bytes, err := json.Marshal(value)
-	if err != nil {
-		return fmt.Errorf("failed to marshal cache value: %w", err)
-	}
-
-	return c.client.Set(ctx, fullKey, bytes, ttl).Err()
-}
-```
-
-### Example 2: Goroutine Worker Pool for Processing Job Channels
-This background processor pools jobs from a Go channel and executes them concurrently using separate worker goroutines:
-
-```go
-// File: internal/worker/pool.go
-package worker
-
-import (
-	"context"
-	"log"
-	"sync"
-)
-
-type EmailJob struct {
-	To      string
-	Subject string
-	Body    string
-}
-
-type WorkerPool struct {
-	jobChan    chan EmailJob
-	numWorkers int
-	wg         sync.WaitGroup
-}
-
-func NewWorkerPool(numWorkers int, bufferSize int) *WorkerPool {
-	return &WorkerPool{
-		jobChan:    make(chan EmailJob, bufferSize),
-		numWorkers: numWorkers,
-	}
-}
-
-// Start spawns the worker goroutines.
-func (p *WorkerPool) Start(ctx context.Context) {
-	for i := 1; i <= p.numWorkers; i++ {
-		p.wg.Add(1)
-		go p.worker(ctx, i) // Spawn concurrently
-	}
-}
-
-// worker loops reading from the shared job channel.
-func (p *WorkerPool) worker(ctx context.Context, workerID int) {
-	defer p.wg.Done()
-	log.Printf("Background worker %d started.", workerID)
-
-	for {
-		select {
-		case <-ctx.Done():
-			log.Printf("Worker %d received shutdown signal.", workerID)
-			return
-		case job, ok := <-p.jobChan:
-			if !ok {
-				log.Printf("Worker %d channel closed. Exiting.", workerID)
-				return
-			}
-			
-			// Process job
-			p.executeJob(job, workerID)
-		}
-	}
-}
-
-func (p *WorkerPool) executeJob(job EmailJob, workerID int) {
-	log.Printf("[Worker %d] Processing email to %s, Subject: %q", workerID, job.To, job.Subject)
-	// actual integration sending goes here...
-}
-
-// Enqueue puts a job into the buffered channel.
-func (p *WorkerPool) Enqueue(job EmailJob) {
-	p.jobChan <- job
-}
-
-// Stop closes the channel and waits for workers to drain it.
-func (p *WorkerPool) Stop() {
-	close(p.jobChan)
-	p.wg.Wait()
-	log.Println("Worker pool stopped cleanly.")
-}
-```
-
----
-
 ## Mastery Check
 
 You understand this chapter when you can:
 - Explain what goroutines are and why they are lightweight.
 - Create unbuffered and buffered channels.
-- Send and receive values on channels without locking threads.
-- Coordinate multiple channels using `select` statements.
-- Write a clean worker loop that drains channels safely.
+- Coordinate multiple channel reads concurrently using `select`.
+- Build a thread-safe worker coordinator using `sync.WaitGroup` to handle graceful shutdowns.
