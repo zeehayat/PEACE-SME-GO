@@ -74,6 +74,7 @@ Use the [Concept Index](concept-index.md) when you want to study by topic instea
 19. [Vue and Git Practice Lab](chapters/19-vue-git-practice-lab.md)
 20. [Error Handling and Observability](chapters/20-error-handling-and-observability.md)
 21. [Go Concurrency Patterns](chapters/21-go-concurrency-patterns.md)
+22. [Advanced Go Mastery and Runtime Internals](chapters/22-go-advanced-mastery.md)
 
 ## Building the Book
 

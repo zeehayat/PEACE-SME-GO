@@ -188,6 +188,34 @@
         .hl-pink   { background: var(--hl-pink);   border-radius: 2px; padding: 1px 0; }
         .hl-blue   { background: var(--hl-blue);   border-radius: 2px; padding: 1px 0; }
 
+        .glossary-term {
+            color: var(--accent);
+            border-bottom: 1px dashed var(--accent);
+            cursor: help;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .glossary-term:hover {
+            color: var(--accent-hover);
+            background: rgba(56, 189, 248, 0.1);
+        }
+        .glossary-popover {
+            position: absolute;
+            z-index: 10000;
+            background: #1e293b;
+            border: 1px solid var(--accent);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            font-size: 0.88rem;
+            color: var(--text-primary);
+            max-width: 340px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            line-height: 1.5;
+        }
+        .glossary-popover strong {
+            color: var(--accent);
+        }
+
         #highlight-toolbar {
             display: none; position: fixed; z-index: 9999;
             background: #1e293b; border: 1px solid var(--border);
@@ -280,6 +308,7 @@
 <li class="nav-item"><a class="nav-link" href="#chap-21">Chapter 19: Vue and Git Practice Lab</a></li>
 <li class="nav-item"><a class="nav-link" href="#chap-22">Chapter 20: Error Handling and Observability</a></li>
 <li class="nav-item"><a class="nav-link" href="#chap-23">Chapter 21: Go Concurrency Patterns</a></li>
+<li class="nav-item"><a class="nav-link" href="#chap-24">Chapter 22: Advanced Go Mastery and Runtime Internals</a></li>
         </ul></nav>
     </div>
 
@@ -366,6 +395,7 @@ frontend/
 <li><a href="chapters/19-vue-git-practice-lab.md">Vue and Git Practice Lab</a></li>
 <li><a href="chapters/20-error-handling-and-observability.md">Error Handling and Observability</a></li>
 <li><a href="chapters/21-go-concurrency-patterns.md">Go Concurrency Patterns</a></li>
+<li><a href="chapters/22-go-advanced-mastery.md">Advanced Go Mastery and Runtime Internals</a></li>
 </ol>
 <h2>Building the Book</h2>
 <p>Run from the <code>guide/</code> directory:</p>
@@ -413,7 +443,7 @@ git commit -m &#34;Add Go server bootstrap&#34;
 <tr><td>JSON request/response helpers</td><td>3</td></tr>
 <tr><td>Configuration loading</td><td>4</td></tr>
 <tr><td>Environment toggles</td><td>4, 7, 8, 10, 12</td></tr>
-<tr><td>Interfaces</td><td>8, 10, 12</td></tr>
+<tr><td>Interfaces</td><td>8, 10, 12, 22</td></tr>
 <tr><td>Dependency injection</td><td>3, 7</td></tr>
 <tr><td>Context propagation</td><td>5, 6</td></tr>
 <tr><td>Error handling</td><td>3, 6, 15</td></tr>
@@ -423,9 +453,17 @@ git commit -m &#34;Add Go server bootstrap&#34;
 <tr><td>Repository pattern</td><td>5</td></tr>
 <tr><td>Transactions</td><td>5, 12</td></tr>
 <tr><td>Background worker boundaries</td><td>10, 12</td></tr>
-<tr><td>Testing</td><td>15</td></tr>
+<tr><td>Testing</td><td>15, 22</td></tr>
 <tr><td>Beginner Go concept map</td><td>17</td></tr>
 <tr><td>Feature-by-feature Go practice</td><td>18</td></tr>
+<tr><td>GMP Scheduler & Concurrency Scheduler</td><td>21, 22</td></tr>
+<tr><td>Memory Management (Stack/Heap, Escape Analysis)</td><td>22</td></tr>
+<tr><td>Garbage Collection & Tuning</td><td>22</td></tr>
+<tr><td>Reflection & Struct Tags</td><td>22</td></tr>
+<tr><td>Generics (Type parameters & constraints)</td><td>22</td></tr>
+<tr><td>Memory Alignment & unsafe</td><td>22</td></tr>
+<tr><td>Performance Profiling (pprof)</td><td>22</td></tr>
+<tr><td>CGO & WebAssembly (WASM)</td><td>22</td></tr>
 </table>
 <h2>PostgreSQL</h2>
 <table>
@@ -15581,15 +15619,15 @@ Release
 <table>
 <tr><th>Go concept</th><th>Portal task</th><th>Why it matters</th></tr>
 <tr><td>Variables and constants</td><td>allowed districts, status names, cache TTLs</td><td>Avoid magic strings scattered through handlers</td></tr>
-<tr><td>Structs</td><td><code>User</code>, <code>Business</code>, <code>Grant</code>, <code>AdminUser</code></td><td>Model request, response, and database shapes</td></tr>
-<tr><td>Pointers</td><td>services, repositories, large structs</td><td>Share dependencies without copying them</td></tr>
+<tr><td><span class="glossary-term" data-term="struct">Structs</span></td><td><code>User</code>, <code>Business</code>, <code>Grant</code>, <code>AdminUser</code></td><td>Model request, response, and database shapes</td></tr>
+<tr><td><span class="glossary-term" data-term="pointer">Pointers</span></td><td>services, repositories, large structs</td><td>Share dependencies without copying them</td></tr>
 <tr><td>Methods</td><td><code>UserService.Login</code>, <code>GrantRepository.FindByUserID</code></td><td>Attach behavior to a type</td></tr>
-<tr><td>Interfaces</td><td><code>EmailQueue</code>, <code>Storage</code>, <code>TokenSigner</code></td><td>Swap real services for test fakes</td></tr>
-<tr><td>Slices</td><td>lists of documents, financed items, admins</td><td>Represent ordered collections</td></tr>
-<tr><td>Maps</td><td>allowed country codes, translations, filter allow-lists</td><td>Fast lookup by key</td></tr>
+<tr><td><span class="glossary-term" data-term="interface">Interfaces</span></td><td><code>EmailQueue</code>, <code>Storage</code>, <code>TokenSigner</code></td><td>Swap real services for test fakes</td></tr>
+<tr><td><span class="glossary-term" data-term="slice">Slices</span></td><td>lists of documents, financed items, admins</td><td>Represent ordered collections</td></tr>
+<tr><td><span class="glossary-term" data-term="map">Maps</span></td><td>allowed country codes, translations, filter allow-lists</td><td>Fast lookup by key</td></tr>
 <tr><td>Errors</td><td>config parsing, SQL failures, validation</td><td>Make failure explicit and testable</td></tr>
-<tr><td>Context</td><td>request cancellation, identity, database queries</td><td>Carry request lifecycle through layers</td></tr>
-<tr><td>Goroutines</td><td>background workers, email sending, HFC jobs</td><td>Run work outside the request path</td></tr>
+<tr><td><span class="glossary-term" data-term="context">Context</span></td><td>request cancellation, identity, database queries</td><td>Carry request lifecycle through layers</td></tr>
+<tr><td><span class="glossary-term" data-term="goroutine">Goroutines</span></td><td>background workers, email sending, HFC jobs</td><td>Run work outside the request path</td></tr>
 <tr><td>Testing</td><td>auth rules, grant validation, reports</td><td>Protect compatibility while rewriting</td></tr>
 </table>
 <h2>Variables, Constants, and Types</h2>
@@ -20318,6 +20356,429 @@ func TestAccessControllerRace(t *testing.T) {
 <li>The email sending goroutine in <code>AsyncMailer</code> accepts a <code>context.Context</code>. If the server receives <code>SIGTERM</code> and cancels the context, what happens to emails that are already in the <code>jobs</code> channel but have not been sent yet? Write the shutdown code that ensures those emails are sent before the process exits.</li>
 <li>Describe the HFC debounce in your own words. A user saves their grant form three times in 20 seconds. When does the HFC job actually run? What would happen without the debounce if 50 users all saved their forms simultaneously?</li>
 </ol></section>
+<section id="chap-24"><h1>Chapter 22: Advanced Go Mastery and Runtime Internals</h1>
+<h2>Purpose</h2>
+<p>To transition from writing working Go code to possessing an absolute mastery of the Go runtime, compiler, and internal systems. As the PEACE SME Grant Portal backend scales, simple language features become complex runtime decisions. Understanding scheduler states, memory layouts, garbage collection sweeps, and profiling outputs is what separates an intermediate developer from a Go systems engineer.</p>
+<hr style="margin:2rem 0;border:none;border-top:1px solid var(--border);">
+<h2>Concept Map of Advanced Topics</h2>
+<table>
+<tr><th>Concept</th><th>Portal Application</th><th>Performance/Resource Impact</th></tr>
+<tr><td><span class="glossary-term" data-term="gmp">GMP Scheduler</span></td><td>Managing concurrent HTTP requests and <span class="glossary-term" data-term="goroutine">goroutine</span> queues</td><td>CPU utilization and context-switch latency</td></tr>
+<tr><td><span class="glossary-term" data-term="escape-analysis">Escape Analysis</span></td><td>Deciding where variables live (stack vs heap)</td><td>Allocation overhead and GC pressure</td></tr>
+<tr><td><span class="glossary-term" data-term="garbage-collection">Garbage Collection</span></td><td>Clearing stale report memory and cache buffers</td><td>Latency spikes (STW pauses) and memory leaks</td></tr>
+<tr><td><span class="glossary-term" data-term="interface">Interface Internals</span></td><td>Dynamically dispatching database mock services</td><td>Virtual method table lookup overhead</td></tr>
+<tr><td><span class="glossary-term" data-term="reflection">Reflection</span></td><td>JSON encoding/decoding of custom fields</td><td>CPU bounds during serialization</td></tr>
+<tr><td><span class="glossary-term" data-term="generics">Generics</span></td><td>Generic Redis client caches or transactional repositories</td><td>Compile-time complexity vs runtime efficiency</td></tr>
+<tr><td><span class="glossary-term" data-term="memory-alignment">Memory Alignment</span></td><td>Packing database structs like <code>User</code> or <code>Grant</code></td><td>Size of arrays, caching performance, and memory size</td></tr>
+<tr><td><span class="glossary-term" data-term="profiling">Profiling</span></td><td>Finding bottlenecks in HFC fraud-scoring algorithms</td><td>CPU cycle conservation and memory bounds</td></tr>
+<tr><td><span class="glossary-term" data-term="unsafe">Unsafe Operations</span></td><td>Direct memory access and fast type conversion</td><td>Type safety bypass, potential panics, and security risks</td></tr>
+<tr><td><span class="glossary-term" data-term="cgo">CGO</span> & <span class="glossary-term" data-term="wasm">WebAssembly</span></td><td>Executing legacy C decoders or in-browser fraud predictions</td><td>Process overhead and memory isolation boundaries</td></tr>
+</table>
+<hr style="margin:2rem 0;border:none;border-top:1px solid var(--border);">
+<h2>Part 1: Go Runtime Internals — The GMP Scheduler</h2>
+<p>Go's concurrency is powered by its runtime scheduler, known as the <strong>GMP Model</strong>. Understanding how this scheduler works is critical for diagnosing latency spikes or thread exhaustion on your PEACE SME server.</p>
+<h3>The Components: G, M, and P</h3>
+<ul>
+<li><strong>G (Goroutine)</strong>: Represents the <span class="glossary-term" data-term="goroutine">goroutine</span> stack, execution state, and PC (program counter). It is a user-space thread starting at 2KB memory size.</li>
+<li><strong>M (Machine / OS Thread)</strong>: Represents an actual operating system thread managed by the OS scheduler.</li>
+<li><strong>P (Processor)</strong>: Represents a logical processor or execution resource. P manages a local run queue of Gs. The number of Ps defaults to the CPU core count (<code>GOMAXPROCS</code>).</li>
+</ul>
+<pre><code class="language-mermaid">
+graph TD
+    M1[OS Thread M1] --&gt; P1[Logical Processor P1]
+    P1 --&gt; GQ1[G1]
+    P1 --&gt; GQ2[G2]
+    P1 --&gt; GQ3[G3]
+    M2[OS Thread M2] --&gt; P2[Logical Processor P2]
+    P2 --&gt; GQ4[G4]
+    
+    subgraph Global Queue
+        GQG[G5, G6, G7...]
+    end
+    
+    P1 -.-&gt;|Work Stealing| P2
+</code></pre>
+<h3>Work Stealing and Hand-off</h3>
+<p>The scheduler utilizes two primary mechanisms to balance workload across OS threads:</p>
+<ol>
+<li><strong>Work Stealing</strong>: When a logical processor <code>P</code> runs out of goroutines in its local queue, it attempts to steal half of the goroutines from another <code>P</code>'s local queue. If those are empty, it checks the global run queue.</li>
+<li><strong>Syscall Hand-off</strong>: When a goroutine <code>G</code> executes a blocking system call (e.g., reading a file or waiting on a slow database query in the <code>GrantRepository</code>), the OS thread <code>M</code> blocks. The scheduler detaches the logical processor <code>P</code> from <code>M</code> and assigns it to a new or idle OS thread <code>M2</code>, allowing the remaining goroutines in <code>P</code>'s queue to continue executing.</li>
+</ol>
+<h3>Cooperative vs. Non-Cooperative Preemption</h3>
+<p>Historically, Go used cooperative preemption: a goroutine could only be preempted if it called a function (which triggered a stack-guard check). If a goroutine ran an infinite loop containing no function calls, it could hog the thread forever.</p>
+<p>In Go 1.14+, the runtime introduced <strong>asynchronous non-cooperative preemption</strong>. The scheduler now uses OS signals (<code>SIGURG</code> on Unix/Linux) to interrupt long-running goroutines at arbitrary points. This ensures that a single misbehaved HFC fraud scoring loop cannot lock up your web server.</p>
+<details class="expandable-box"><summary class="expandable-summary">Deep Dive: Term: Preemption (Click to expand)</summary><div class="expandable-content">
+<p>Preemption is the act of temporarily interrupting a task being carried out by a computer system, without requiring its cooperation, and with the intention of resuming the task at a later time.</p>
+</div></details>
+<hr style="margin:2rem 0;border:none;border-top:1px solid var(--border);">
+<h2>Part 2: Go Memory Management — Stack vs. Heap</h2>
+<p>To optimize the throughput of the PEACE SME backend, you must understand how Go allocates memory. Go categorizes memory allocations into the <strong>Stack</strong> and the <strong>Heap</strong>.</p>
+<h3>Stack Allocation</h3>
+<p>Each <span class="glossary-term" data-term="goroutine">goroutine</span> is allocated its own stack. Stack allocation is incredibly fast (a simple increment of the stack pointer) and self-cleaning. When a function returns, its stack frame is popped, and memory is reclaimed instantly with zero overhead.</p>
+<h3>Heap Allocation</h3>
+<p>The heap is a shared memory space. Variables allocated on the heap must be tracked, and their memory is reclaimed by the <span class="glossary-term" data-term="garbage-collection">Garbage Collector</span>. Heap allocation requires runtime synchronization and causes CPU overhead.</p>
+<h3>Escape Analysis</h3>
+<p>The Go compiler performs <span class="glossary-term" data-term="escape-analysis">Escape Analysis</span> during compilation to determine whether a variable can be safely allocated on the stack or must "escape" to the heap.</p>
+<p>A variable escapes to the heap if:</p>
+<ol>
+<li>It is returned as a pointer from a function.</li>
+<li>It is assigned to a global variable.</li>
+<li>It is passed into an interface parameter (e.g., <code>fmt.Println(x)</code>).</li>
+<li>Its size is too large or dynamic (e.g., a slice created with a dynamic length variable).</li>
+</ol>
+<p>Let's examine this in code:</p>
+<pre><code class="language-go">
+package main
+
+type Applicant struct {
+    ID   int64
+    Name string
+}
+
+// Escapes: returning a pointer to local variable
+func NewApplicant(name string) *Applicant {
+    a := Applicant{ID: 101, Name: name}
+    return &amp;a // a escapes to the heap because its pointer is accessed out-of-scope
+}
+
+// Does not escape: passed by value, stack allocated
+func ProcessApplicant(a Applicant) int64 {
+    return a.ID
+}
+</code></pre>
+<p>To view escape analysis decisions, compile your project with optimization flags:</p>
+<pre><code class="language-bash">
+go build -gcflags=&#34;-m&#34; ./cmd/server
+</code></pre>
+<p>Output details:</p>
+<pre><code class="language-text">
+./main.go:9:9: &amp;a escapes to heap
+./main.go:8:2: moved to heap: a
+</code></pre>
+<div class="alert">[!TIP]</div>
+<div class="alert">To minimize memory allocation and GC overhead in hot paths (like parsing JWT tokens or executing middleware), avoid returning pointers for small structs. Pass by value instead.</div>
+<hr style="margin:2rem 0;border:none;border-top:1px solid var(--border);">
+<h2>Part 3: Garbage Collection Internals and Tuning</h2>
+<p>Go uses a concurrent, tri-color mark-and-sweep <span class="glossary-term" data-term="garbage-collection">Garbage Collector</span>. It runs alongside your application code, attempting to minimize "Stop The World" (STW) pauses.</p>
+<h3>The Tri-Color Mark-and-Sweep Algorithm</h3>
+<p>The GC colors memory blocks using three colors:</p>
+<ol>
+<li><strong>White</strong>: Candidate objects for garbage collection (unreachable).</li>
+<li><strong>Grey</strong>: Reachable objects, but their referenced objects have not yet been scanned.</li>
+<li><strong>Black</strong>: Reachable objects, and their referenced objects have been scanned.</li>
+</ol>
+<pre><code class="language-mermaid">
+graph LR
+    subgraph Roots
+        R[Stack/Globals]
+    end
+    
+    R --&gt; B[Black: Scanned]
+    B --&gt; G[Grey: Visited]
+    G --&gt; W[White: Unreached]
+    
+    style B fill:#1e293b,stroke:#38bdf8,stroke-width:2px,color:#f8fafc
+    style G fill:#475569,stroke:#e2e8f0,stroke-width:2px,color:#f8fafc
+    style W fill:#0f172a,stroke:#334155,stroke-width:2px,color:#94a3b8
+</code></pre>
+<ol>
+<li><strong>Mark Phase</strong>: The GC starts from "roots" (stack pointers, global variables) and colors them grey. It then traverses references, coloring referenced objects grey and marking scanned objects black. This happens concurrently with your application using a <strong>write barrier</strong> to detect memory writes during scanning.</li>
+<li><strong>Sweep Phase</strong>: Once the mark phase is done, all remaining white objects are reclaimed concurrently.</li>
+</ol>
+<h3>Tuning the GC: GOGC and GOMEMLIMIT</h3>
+<p>Go provides two environment variables to control GC behavior:</p>
+<ul>
+<li><code>GOGC</code>: Controls the GC target percentage. By default, <code>GOGC=100</code>, which means the GC will trigger when the heap size doubles compared to the live heap size after the previous GC. Setting <code>GOGC=200</code> delays GC triggers (saving CPU cycles but using more RAM).</li>
+<li><code>GOMEMLIMIT</code>: Introduced in Go 1.19. It defines a soft memory limit (e.g., <code>GOMEMLIMIT=1GiB</code>). If memory usage approaches this limit, the GC will trigger more aggressively to prevent Out-Of-Memory (OOM) process crashes, ignoring <code>GOGC</code> targets if necessary.</li>
+</ul>
+<pre><code class="language-bash">
+# Example command to run your server in Docker with optimized memory parameters
+GOGC=100 GOMEMLIMIT=1500MiB ./server
+</code></pre>
+<hr style="margin:2rem 0;border:none;border-top:1px solid var(--border);">
+<h2>Part 4: Interface Internals — <code>iface</code> and <code>eface</code></h2>
+<p>Go's <span class="glossary-term" data-term="interface">interfaces</span> are satisfyingly implicit, but they are not free. At runtime, interfaces are represented by two-word data structures.</p>
+<h3>The Internal Structures</h3>
+<ol>
+<li><strong><code>iface</code></strong>: Used for interfaces that define methods.</li>
+</ol>
+<ul>
+<li>It contains a pointer to an <strong>Itab</strong> (interface table), which holds the dynamic type metadata and a list of function pointers (virtual table).</li>
+<li>It contains a pointer to the actual dynamic <strong>data</strong> value.</li>
+</ul>
+<ol>
+<li><strong><code>eface</code></strong>: Used for empty interfaces (<code>interface{}</code> or <code>any</code>).</li>
+</ol>
+<ul>
+<li>It contains a pointer to the <strong>Type</strong> descriptor (metadata about the dynamic type).</li>
+<li>It contains a pointer to the actual dynamic <strong>data</strong> value.</li>
+</ul>
+<pre><code class="language-go">
+// Structure representation of an interface
+type iface struct {
+    tab  *itab          // Pointer to Interface Table
+    data unsafe.Pointer // Pointer to actual data value
+}
+</code></pre>
+<h3>Performance Implications</h3>
+<ul>
+<li><strong>Memory Allocation</strong>: Assigning a concrete value to an interface variable causes the value to escape to the heap (unless the compiler can prove it doesn't escape).</li>
+<li><strong>Dynamic Dispatch</strong>: Calling a method on an interface requires traversing the <code>itab</code> function pointer array. This disables compiler inlining and adds a small CPU overhead.</li>
+</ul>
+<div class="alert"><strong>ℹ NOTE:</strong> </div>
+<div class="alert">Do not use interfaces everywhere. Use interfaces when you need to swap implementations (e.g., swapping a real email sender with a mockup in tests). If there is only one implementation, accept concrete types.</div>
+<hr style="margin:2rem 0;border:none;border-top:1px solid var(--border);">
+<h2>Part 5: Reflection (<code>reflect</code>) & Struct Tags in JSON Serialization</h2>
+<p>Reflection is the ability of a program to examine its own variables, types, and values at runtime. In Go, reflection is implemented in the <code>reflect</code> package.</p>
+<h3>The Laws of Reflection</h3>
+<ol>
+<li>Reflection goes from interface value to reflection object.</li>
+<li>Reflection goes from reflection object to interface value.</li>
+<li>To modify a reflection object, the value must be settable (addressable via pointer).</li>
+</ol>
+<h3>Struct Tags and JSON</h3>
+<p>When your PEACE SME portal uses <code>json.Marshal</code> or <code>json.Unmarshal</code>, Go uses reflection to read structural information and match keys with structural fields using metadata called <strong>Struct Tags</strong>.</p>
+<pre><code class="language-go">
+type GrantApplication struct {
+    Amount   float64 `json:&#34;amount&#34;`
+    District string  `json:&#34;district&#34;`
+}
+</code></pre>
+<p>Under the hood, <code>encoding/json</code> performs a type inspection:</p>
+<pre><code class="language-go">
+func InspectStructTags(val interface{}) {
+    t := reflect.TypeOf(val)
+    if t.Kind() == reflect.Struct {
+        for i := 0; i &lt; t.NumField(); i++ {
+            field := t.Field(i)
+            tag := field.Tag.Get(&#34;json&#34;)
+            println(&#34;Field:&#34;, field.Name, &#34;JSON Tag:&#34;, tag)
+        }
+    }
+}
+</code></pre>
+<h3>The Reflection Tax</h3>
+<p>Reflection is slow because:</p>
+<ul>
+<li>It bypasses compiler safety checks, deferring type errors to runtime.</li>
+<li>It disables compiler optimizations and involves heap allocations.</li>
+<li>It requires extensive string comparisons during dynamic struct lookups.</li>
+</ul>
+<p>If your application generates huge reports, consider using code-generation libraries (like <code>easyjson</code> or <code>msgpack</code>) that write custom serialization code, bypassing reflection completely.</p>
+<hr style="margin:2rem 0;border:none;border-top:1px solid var(--border);">
+<h2>Part 6: Generics — Writing Type-Safe, Reusable Utilities</h2>
+<p>Introduced in Go 1.18, <strong>Generics</strong> allow you to write functions and structs with placeholder types (Type Parameters). This is perfect for caching repositories or list utilities in the PEACE SME portal.</p>
+<h3>Generic In-Memory Cache Example</h3>
+<p>Instead of writing separate cache utilities for <code>Users</code> and <code>Grants</code>, write a generic Cache:</p>
+<pre><code class="language-go">
+package cache
+
+import (
+    &#34;sync&#34;
+    &#34;time&#34;
+)
+
+type Item[T any] struct {
+    Value      T
+    Expiration int64
+}
+
+// Cache is a thread-safe generic cache
+type Cache[K comparable, T any] struct {
+    mu    sync.RWMutex
+    items map[K]Item[T]
+}
+
+func New[K comparable, T any]() *Cache[K, T] {
+    return &amp;Cache[K, T]{
+        items: make(map[K]Item[T]),
+    }
+}
+
+func (c *Cache[K, T]) Set(key K, val T, ttl time.Duration) {
+    c.mu.Lock()
+    defer c.mu.Unlock()
+    c.items[key] = Item[T]{
+        Value:      val,
+        Expiration: time.Now().Add(ttl).UnixNano(),
+    }
+}
+
+func (c *Cache[K, T]) Get(key K) (T, bool) {
+    c.mu.RLock()
+    defer c.mu.RUnlock()
+    item, ok := c.items[key]
+    if !ok {
+        var zero T
+        return zero, false
+    }
+    if time.Now().UnixNano() &gt; item.Expiration {
+        var zero T
+        return zero, false // Expired
+    }
+    return item.Value, true
+}
+</code></pre>
+<h3>Type Constraints and Approximation (<code>~</code>)</h3>
+<p>Type constraints enforce rules on the type parameters. Use <code>~</code> to match the underlying type, which is useful when dealing with custom types.</p>
+<pre><code class="language-go">
+type ID int64
+
+// Constraint requiring any integer-like underlying type
+type IntegerID interface {
+    ~int64 | ~int | ~string
+}
+
+func PrintID[T IntegerID](id T) {
+    println(&#34;ID is:&#34;, id)
+}
+</code></pre>
+<p>Generics in Go are compiled using <strong>Monomorphization</strong> (generating separate concrete functions for each type instantiation) combined with <strong>GCShape sharing</strong> (sharing pointer representations). This means there is no runtime dynamic dispatch tax: generic Go code runs as fast as handwritten concrete code!</p>
+<hr style="margin:2rem 0;border:none;border-top:1px solid var(--border);">
+<h2>Part 7: Memory Alignment, Struct Size Optimization & <code>unsafe</code></h2>
+<p>Computers read memory in words (e.g., 64-bit or 8 bytes at a time on modern architectures). To avoid reading a single variable across word boundaries, variables are aligned to matching memory offsets.</p>
+<h3>Struct Alignment and Padding</h3>
+<p>Let's look at two structs with the exact same fields, ordered differently:</p>
+<pre><code class="language-go">
+package main
+
+import (
+    &#34;fmt&#34;
+    &#34;unsafe&#34;
+)
+
+type PoorlyAligned struct {
+    A bool   // 1 byte
+             // 7 bytes padding
+    B int64  // 8 bytes
+    C bool   // 1 byte
+             // 7 bytes padding
+}
+
+type WellAligned struct {
+    B int64  // 8 bytes
+    A bool   // 1 byte
+    C bool   // 1 byte
+             // 6 bytes padding
+}
+
+func main() {
+    fmt.Println(&#34;PoorlyAligned size:&#34;, unsafe.Sizeof(PoorlyAligned{})) // Prints 24 bytes
+    fmt.Println(&#34;WellAligned size:&#34;, unsafe.Sizeof(WellAligned{}))     // Prints 16 bytes
+}
+</code></pre>
+<p>By sorting struct fields from largest to smallest, you can reduce the struct size by 33%. While minor for a single variable, if you load a slice of 100,000 grant records from PostgreSQL, this alignment saves critical cache space and megabytes of RAM.</p>
+<h3>The <code>unsafe</code> Package</h3>
+<p>The <span class="glossary-term" data-term="unsafe">unsafe</span> package lets you bypass Go's compile-time type safety. It is typically used for low-overhead conversions or system integrations.</p>
+<pre><code class="language-go">
+package main
+
+import (
+    &#34;fmt&#34;
+    &#34;unsafe&#34;
+)
+
+func FastStringToBytes(s string) []byte {
+    // Zero-copy conversion using unsafe.Pointer
+    return unsafe.Slice((*byte)(unsafe.Pointer(unsafe.StringData(s))), len(s))
+}
+
+func main() {
+    s := &#34;PEACE SME&#34;
+    b := FastStringToBytes(s)
+    fmt.Printf(&#34;Bytes: %v\n&#34;, b)
+}
+</code></pre>
+<div class="alert">[!CAUTION]</div>
+<div class="alert">Avoid <code>unsafe</code> unless you are dealing with critical bottlenecks. Code using <code>unsafe</code> may break between Go releases, can panic unexpectedly, and bypasses the memory safety guarantees of the runtime.</div>
+<hr style="margin:2rem 0;border:none;border-top:1px solid var(--border);">
+<h2>Part 8: Performance Profiling with <code>pprof</code></h2>
+<p>When your server experiences high CPU usage or memory leaks, do not guess the cause. Use <strong>pprof</strong>, Go's built-in tool for profiling.</p>
+<h3>Integrating <code>pprof</code> into Your Web Server</h3>
+<p>Mount the pprof routes onto your HTTP router:</p>
+<pre><code class="language-go">
+package main
+
+import (
+    &#34;net/http&#34;
+    _ &#34;net/http/pprof&#34; // side-effect import registers pprof routes at /debug/pprof
+)
+
+func main() {
+    // Launch a separate internal admin debug server
+    go func() {
+        http.ListenAndServe(&#34;localhost:6060&#34;, nil)
+    }()
+    
+    // Main server logic below...
+}
+</code></pre>
+<h3>Collecting and Analyzing Profiles</h3>
+<p>While your server is running under load, capture profiling data from your terminal:</p>
+<pre><code class="language-bash">
+# Capture a 30-second CPU profile
+go tool pprof http://localhost:6060/debug/pprof/profile?seconds=30
+
+# Capture a heap memory profile
+go tool pprof http://localhost:6060/debug/pprof/heap
+</code></pre>
+<p>Inside the interactive pprof tool, use commands to find bottlenecks:</p>
+<ul>
+<li><code>top10</code>: Lists the top 10 CPU-consuming functions.</li>
+<li><code>list <FunctionName></code>: Highlights line-by-line CPU usage inside a specific function.</li>
+<li><code>web</code>: Generates a SVG execution graph showing hot paths.</li>
+</ul>
+<pre><code class="language-text">
+(pprof) top10
+Showing nodes accounting for 320ms, 82.05% of 390ms total
+      flat  flat%   sum%        cum   cum%
+     160ms 41.03% 41.03%      160ms 41.03%  runtime.cgocall
+      80ms 20.51% 61.54%       80ms 20.51%  syscall.Syscall
+      40ms 10.26% 71.79%       40ms 10.26%  runtime.memmove
+      20ms  5.13% 76.92%       40ms 10.26%  peace-sme-go/internal/hfc.Calculate
+</code></pre>
+<hr style="margin:2rem 0;border:none;border-top:1px solid var(--border);">
+<h2>Part 9: Interfacing with CGO and WebAssembly (WASM)</h2>
+<p>In modern enterprise architectures, Go sometimes needs to call external C libraries or run inside the web browser.</p>
+<h3>CGO — Calling C Libraries</h3>
+<p>By importing <code>"C"</code>, you can call C code directly from Go. This is useful for high-performance image compression or crypto libraries.</p>
+<pre><code class="language-go">
+package main
+
+/*
+#include &lt;stdio.h&gt;
+void printHello() {
+    printf(&#34;Hello from C code!\n&#34;);
+}
+*/
+import &#34;C&#34;
+
+func main() {
+    C.printHello() // Triggers C compilation during &#39;go build&#39;
+}
+</code></pre>
+<h4>The Cost of CGO</h4>
+<ul>
+<li><strong>Call Overhead</strong>: Calling C from Go requires thread context switches and stack allocation swaps, taking ~10-20x longer than a native Go function call.</li>
+<li><strong>Lost Tooling</strong>: Profilers like <code>pprof</code> cannot trace deep into C code, and static analysis tools become blind.</li>
+</ul>
+<h3>WebAssembly (WASM) — Go in the Browser</h3>
+<p>You can compile Go backend functions directly to WebAssembly to run them inside your Vue 3 frontend application.</p>
+<pre><code class="language-bash">
+# Compile Go code to WASM
+GOOS=js GOARCH=wasm go build -o main.wasm main.go
+</code></pre>
+<p>In the browser, include Go's wasm support script (<code>wasm_exec.js</code>) to load and run the compiled WASM binary, enabling you to share business validation or HFC fraud-scoring algorithms between the backend and frontend client.</p>
+<hr style="margin:2rem 0;border:none;border-top:1px solid var(--border);">
+<h2>Part 10: Deep-Dive Study Resources</h2>
+<p>To continue your path toward absolute Go mastery, study the following official resources:</p>
+<ol>
+<li><strong><a href="https://go.dev/ref/spec">The Go Language Specification</a></strong>: The ultimate authority on syntax, type systems, and compiler behavior.</li>
+<li><strong><a href="https://go.dev/doc/effective_go">Effective Go</a></strong>: Best practices for writing clean, idiomatic, and performant Go code.</li>
+<li><strong><a href="https://github.com/golang/go/wiki/DesignDocuments">Go Runtime Design Documents</a></strong>: Read internal docs detailing the design of the Go scheduler, memory allocator, and garbage collector.</li>
+<li><strong><a href="https://dave.cheney.net">Dave Cheney's Blog</a></strong>: Practical deep-dives into compiler flags, performance tuning, and Go architecture.</li>
+<li><strong><a href="https://www.ardanlabs.com/blog/">Ardan Labs Blog</a></strong>: Unbeatable articles on mechanical sympathy, pointer design, and memory profiles.</li>
+</ol></section>
 </main>
 
 <div id="highlight-toolbar">
@@ -20348,6 +20809,68 @@ func TestAccessControllerRace(t *testing.T) {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
 
 <script>
+// ── Glossary Data ────────────────────────────────────────────────────────
+const glossary = {
+    'goroutine': 'A lightweight, user-space thread managed by the Go runtime. Goroutines start with a tiny 2KB stack that grows/shrinks dynamically and are multiplexed onto OS threads by the GMP scheduler.',
+    'channel': 'A typed conduit in Go used to send and receive values between goroutines, enabling safe synchronization and communication without explicit locks.',
+    'gmp': 'Go\'s scheduler architecture: G = Goroutine (execution state/stack), M = Machine (OS thread), P = Processor (execution context/logical resource needed to run Go code).',
+    'escape-analysis': 'A compiler phase that decides if a variable can be safely allocated on the stack (when its lifetime is bound to the stack frame) or must "escape" to the heap.',
+    'garbage-collection': 'Go\'s concurrent, tri-color mark-and-sweep garbage collector that automatically manages heap-allocated memory with minimal "Stop-The-World" pauses.',
+    'heap': 'A shared pool of memory used for dynamic allocations. Heap allocation has overhead and requires reclamation by the Garbage Collector.',
+    'stack': 'A fast, per-goroutine memory pool used to store local variables. Stack frames are automatically cleaned up when their functions return.',
+    'interface': 'A set of method signatures that define behavior. Go interfaces are satisfied implicitly (structural duck typing): a type implements an interface simply by implementing its methods.',
+    'pointer': 'A variable storing the memory address of another variable, allowing functions to share and modify the same underlying data rather than copying it.',
+    'struct': 'A user-defined type that groups together fields of different types, representing structured data models (like db.User or db.Grant) in Go.',
+    'slice': 'A descriptor for a contiguous segment of an underlying array, containing a pointer to the array, a length, and a capacity. Slices grow dynamically.',
+    'map': 'A built-in hash table type in Go providing O(1) lookups, insertions, and deletions. Maps are not thread-safe and must be synchronized in concurrent settings.',
+    'context': 'A package (context) that carries cancellation signals, deadlines, and request-scoped metadata across API boundaries and goroutines.',
+    'reflection': 'The runtime inspection of types, variables, and values using the reflect package. Used in JSON encoding, but carries CPU performance penalties.',
+    'generics': 'Compile-time type parameters that enable writing reusable, type-safe structures and functions without dynamic dynamic-dispatch overhead.',
+    'mutex': 'A mutual exclusion lock (sync.Mutex or sync.RWMutex) used to serialize access to shared memory, preventing data races.',
+    'waitgroup': 'sync.WaitGroup is a synchronization primitive used to wait for a collection of goroutines to finish executing.',
+    'atomic': 'Low-level, lock-free synchronization operations provided by the sync/atomic package that run directly on CPU memory.',
+    'unsafe': 'A package (unsafe) that bypasses Go\'s type safety rules, allowing direct memory allocation, layout inspection, and pointer arithmetic.',
+    'cgo': 'A mechanism enabling Go code to call C libraries, introducing overhead due to stack swaps and disabling certain runtime optimizations.',
+    'wasm': 'WebAssembly, a binary instruction format Go can compile to, allowing Go backend logic to execute in the web browser.',
+    'pprof': 'Go\'s built-in profiling framework for analyzing CPU profiles, heap usage, blocking operations, and thread allocations to find performance bottlenecks.',
+    'gofmt': 'Go\'s standard code formatter that enforces a uniform style across all Go source files, eliminating styling debates.',
+    'json': 'JavaScript Object Notation, the standard format for Web API payloads. Go maps JSON keys to struct fields using reflection-based struct tags.',
+    'middleware': 'A decorator function wrapping an HTTP handler to execute common logic (auth, logging, headers, geo-blocking) before/after the handler runs.',
+    'preemption': 'The runtime interrupting a running goroutine (asynchronously in Go 1.14+ via OS signals) to prevent it from hogging CPU threads.',
+    'memory-alignment': 'The alignment of structural fields to matching memory offsets (e.g., 8-byte boundaries) to optimize memory access speeds and structure sizes.',
+    'profiling': 'The practice of gathering runtime execution statistics (CPU, memory, lock contention) to diagnose resource leaks and optimize hot paths.'
+};
+
+// ── Glossary Interaction ──────────────────────────────────────────────────
+document.addEventListener('click', e => {
+    const activePopover = document.querySelector('.glossary-popover');
+    if (activePopover && !activePopover.contains(e.target) && !e.target.classList.contains('glossary-term')) {
+        activePopover.remove();
+    }
+
+    const termEl = e.target.closest('.glossary-term');
+    if (termEl) {
+        const key = termEl.dataset.term;
+        const text = glossary[key] || 'Definition not found.';
+        
+        const popover = document.createElement('div');
+        popover.className = 'glossary-popover';
+        popover.innerHTML = '<strong>' + termEl.textContent + '</strong>: ' + text;
+        document.body.appendChild(popover);
+        
+        const rect = termEl.getBoundingClientRect();
+        popover.style.top = (rect.bottom + window.scrollY + 6) + 'px';
+        popover.style.left = Math.max(10, rect.left + window.scrollX - 50) + 'px';
+        
+        const popoverRect = popover.getBoundingClientRect();
+        if (popoverRect.right > window.innerWidth) {
+            popover.style.left = (window.innerWidth - popoverRect.width - 20) + 'px';
+        }
+        
+        e.stopPropagation();
+    }
+});
+
 // ── Data layer ──────────────────────────────────────────────────────────
 const KEYS = { bookmarks: 'sme_bookmarks', highlights: 'sme_highlights', notes: 'sme_notes' };
 
@@ -20401,6 +20924,7 @@ function getSectionTitle(sec) {
     return h1 ? h1.textContent.trim() : sec.id;
 }
 
+// Ensure bookmark button shows active status correctly
 function updateBookmarkBtn(btn, sectionId) {
     const active = !!dbLoad(KEYS.bookmarks)[sectionId];
     btn.classList.toggle('bookmarked', active);
@@ -20437,6 +20961,9 @@ function injectButtons() {
             else bms[sec.id] = { title: getSectionTitle(sec), timestamp: Date.now() };
             dbSave(KEYS.bookmarks, bms);
             updateBookmarkBtn(bm, sec.id);
+            if (document.querySelector('[data-tab="bookmarks"]').classList.contains('active')) {
+                renderBookmarks();
+            }
         });
 
         // Note button
@@ -20514,6 +21041,9 @@ document.getElementById('note-modal-save').addEventListener('click', () => {
     document.getElementById('note-modal-overlay').classList.remove('visible');
     const sec = document.getElementById(newNote.sectionId);
     if (sec) { const nb = sec.querySelector('.section-note-btn'); if (nb) updateNoteCount(nb, newNote.sectionId); }
+    if (document.querySelector('[data-tab="notes"]').classList.contains('active')) {
+        renderNotes();
+    }
     _noteCtx = null;
 });
 
@@ -20563,6 +21093,7 @@ function closestSection(node) {
 document.addEventListener('mouseup', e => {
     if (toolbar.contains(e.target)) return;
     if (document.getElementById('note-modal-overlay').contains(e.target)) return;
+    if (e.target.closest('[class^="hl-"]')) return; // handled by click listener
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || sel.toString().trim().length < 3) { hideToolbar(); return; }
     _range = sel.getRangeAt(0).cloneRange();
@@ -20606,7 +21137,7 @@ document.querySelector('.hl-clear-btn').addEventListener('click', e => {
     if (!_range) return;
     const ancestor = _range.commonAncestorContainer;
     const container = ancestor.nodeType === 3 ? ancestor.parentElement : ancestor;
-    container.querySelectorAll('.hl-yellow,.hl-green,.hl-pink,.hl-blue').forEach(span => {
+    container.querySelectorAll('[class^="hl-"]').forEach(span => {
         if (_range.intersectsNode(span)) {
             const p = span.parentNode;
             while (span.firstChild) p.insertBefore(span.firstChild, span);
@@ -20618,25 +21149,131 @@ document.querySelector('.hl-clear-btn').addEventListener('click', e => {
     window.getSelection().removeAllRanges();
 });
 
+// Click on existing highlight to show color/remove toolbar
+document.addEventListener('click', e => {
+    const hlSpan = e.target.closest('[class^="hl-"]');
+    if (hlSpan) {
+        const range = document.createRange();
+        range.selectNode(hlSpan);
+        _range = range;
+        
+        const rect = hlSpan.getBoundingClientRect();
+        toolbar.style.top  = (rect.top + window.scrollY - 48) + 'px';
+        toolbar.style.left = (rect.left + rect.width / 2 - 100) + 'px';
+        toolbar.classList.add('visible');
+        e.stopPropagation();
+    }
+});
+
+function highlightRange(range, color, hlId) {
+    const startContainer = range.startContainer;
+    const endContainer = range.endContainer;
+    const startOffset = range.startOffset;
+    const endOffset = range.endOffset;
+
+    const textNodes = [];
+    const walker = document.createTreeWalker(
+        range.commonAncestorContainer,
+        NodeFilter.SHOW_TEXT,
+        {
+            acceptNode: function(node) {
+                if (range.intersectsNode(node)) {
+                    return NodeFilter.FILTER_ACCEPT;
+                }
+                return NodeFilter.FILTER_REJECT;
+            }
+        }
+    );
+
+    let node;
+    while ((node = walker.nextNode())) {
+        textNodes.push(node);
+    }
+
+    if (textNodes.length === 0 && startContainer.nodeType === 3) {
+        textNodes.push(startContainer);
+    }
+
+    textNodes.forEach(node => {
+        let textNode = node;
+        let start = 0;
+        let end = textNode.textContent.length;
+
+        if (textNode === startContainer) {
+            start = startOffset;
+        }
+        if (textNode === endContainer) {
+            end = endOffset;
+        }
+
+        if (start < end) {
+            if (end < textNode.textContent.length) {
+                textNode.splitText(end);
+            }
+            if (start > 0) {
+                textNode = textNode.splitText(start);
+            }
+
+            const span = document.createElement('span');
+            span.className = 'hl-' + color;
+            span.dataset.hlId = hlId;
+            textNode.parentNode.insertBefore(span, textNode);
+            span.appendChild(textNode);
+        }
+    });
+}
+
+function findRangeForText(container, text) {
+    const plainText = container.textContent;
+    const index = plainText.indexOf(text);
+    if (index === -1) return null;
+
+    const range = document.createRange();
+    let charCount = 0;
+    let startNode = null;
+    let startOffset = 0;
+    let endNode = null;
+    let endOffset = 0;
+
+    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+    let node;
+    while ((node = walker.nextNode())) {
+        const nodeLength = node.textContent.length;
+        if (!startNode && charCount + nodeLength > index) {
+            startNode = node;
+            startOffset = index - charCount;
+        }
+        if (startNode && charCount + nodeLength >= index + text.length) {
+            endNode = node;
+            endOffset = (index + text.length) - charCount;
+            break;
+        }
+        charCount += nodeLength;
+    }
+
+    if (startNode && endNode) {
+        range.setStart(startNode, startOffset);
+        range.setEnd(endNode, endOffset);
+        return range;
+    }
+    return null;
+}
+
 function applyHL(range, color) {
     const sec = closestSection(range.startContainer);
     const text = range.toString().trim();
     if (!text) return;
+    const hlId = Date.now().toString();
+
     try {
-        const span = document.createElement('span');
-        span.className = 'hl-' + color;
-        span.dataset.hlId = Date.now().toString();
-        range.surroundContents(span);
-    } catch {
-        const frag = range.extractContents();
-        const span = document.createElement('span');
-        span.className = 'hl-' + color;
-        span.dataset.hlId = Date.now().toString();
-        span.appendChild(frag);
-        range.insertNode(span);
+        highlightRange(range, color, hlId);
+    } catch (err) {
+        console.error('Failed to highlight:', err);
+        return;
     }
+
     const hls = dbLoad(KEYS.highlights);
-    hls.push({ id: Date.now().toString(), sectionId: sec ? sec.id : 'unknown', text: text.substring(0, 300), color, timestamp: Date.now() });
+    hls.push({ id: hlId, sectionId: sec ? sec.id : 'unknown', text: text.substring(0, 300), color, timestamp: Date.now() });
     dbSave(KEYS.highlights, hls);
 }
 
@@ -20650,25 +21287,18 @@ function syncHighlights() {
 }
 
 function restoreHighlights() {
-    dbLoad(KEYS.highlights).forEach(hl => {
+    const highlights = dbLoad(KEYS.highlights);
+    highlights.forEach(hl => {
+        if (document.querySelector('[data-hl-id="' + hl.id + '"]')) return;
         const sec = document.getElementById(hl.sectionId);
         if (!sec || !hl.text) return;
-        const needle = hl.text.substring(0, 50);
-        const walker = document.createTreeWalker(sec, NodeFilter.SHOW_TEXT);
-        let node;
-        while ((node = walker.nextNode())) {
-            const idx = node.textContent.indexOf(needle);
-            if (idx !== -1) {
-                try {
-                    const r = document.createRange();
-                    r.setStart(node, idx);
-                    r.setEnd(node, Math.min(idx + hl.text.length, node.textContent.length));
-                    const span = document.createElement('span');
-                    span.className = 'hl-' + hl.color;
-                    span.dataset.hlId = hl.id;
-                    r.surroundContents(span);
-                } catch {}
-                break;
+
+        const range = findRangeForText(sec, hl.text);
+        if (range) {
+            try {
+                highlightRange(range, hl.color, hl.id);
+            } catch (err) {
+                console.error('Failed to restore highlight:', err);
             }
         }
     });
@@ -20691,6 +21321,13 @@ document.addEventListener('keydown', e => {
 
 function esc(str) {
     return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Hook into Prism syntax highlighting complete event to restore highlights inside code blocks
+if (window.Prism) {
+    Prism.hooks.add('complete', function(env) {
+        setTimeout(restoreHighlights, 50);
+    });
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────

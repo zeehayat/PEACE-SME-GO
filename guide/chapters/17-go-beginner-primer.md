@@ -22,15 +22,15 @@ In Flask, it is common to pass dictionaries around. In Go, you usually define st
 | Go concept | Portal task | Why it matters |
 |---|---|---|
 | Variables and constants | allowed districts, status names, cache TTLs | Avoid magic strings scattered through handlers |
-| Structs | `User`, `Business`, `Grant`, `AdminUser` | Model request, response, and database shapes |
-| Pointers | services, repositories, large structs | Share dependencies without copying them |
+| [Structs](term:struct) | `User`, `Business`, `Grant`, `AdminUser` | Model request, response, and database shapes |
+| [Pointers](term:pointer) | services, repositories, large structs | Share dependencies without copying them |
 | Methods | `UserService.Login`, `GrantRepository.FindByUserID` | Attach behavior to a type |
-| Interfaces | `EmailQueue`, `Storage`, `TokenSigner` | Swap real services for test fakes |
-| Slices | lists of documents, financed items, admins | Represent ordered collections |
-| Maps | allowed country codes, translations, filter allow-lists | Fast lookup by key |
+| [Interfaces](term:interface) | `EmailQueue`, `Storage`, `TokenSigner` | Swap real services for test fakes |
+| [Slices](term:slice) | lists of documents, financed items, admins | Represent ordered collections |
+| [Maps](term:map) | allowed country codes, translations, filter allow-lists | Fast lookup by key |
 | Errors | config parsing, SQL failures, validation | Make failure explicit and testable |
-| Context | request cancellation, identity, database queries | Carry request lifecycle through layers |
-| Goroutines | background workers, email sending, HFC jobs | Run work outside the request path |
+| [Context](term:context) | request cancellation, identity, database queries | Carry request lifecycle through layers |
+| [Goroutines](term:goroutine) | background workers, email sending, HFC jobs | Run work outside the request path |
 | Testing | auth rules, grant validation, reports | Protect compatibility while rewriting |
 
 ## Variables, Constants, and Types

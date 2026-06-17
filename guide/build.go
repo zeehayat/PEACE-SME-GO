@@ -116,6 +116,8 @@ func parseMarkdown(md string) string {
 
 	applyInline := func(s string) string {
 		s = inlineCode.ReplaceAllString(s, "<code>$1</code>")
+		termRe := regexp.MustCompile(`\[([^\]]+)\]\(term:([^)]+)\)`)
+		s = termRe.ReplaceAllString(s, `<span class="glossary-term" data-term="$2">$1</span>`)
 		s = linkRe.ReplaceAllString(s, `<a href="$2">$1</a>`)
 		return s
 	}
@@ -482,6 +484,34 @@ const htmlTemplate = `<!DOCTYPE html>
         .hl-pink   { background: var(--hl-pink);   border-radius: 2px; padding: 1px 0; }
         .hl-blue   { background: var(--hl-blue);   border-radius: 2px; padding: 1px 0; }
 
+        .glossary-term {
+            color: var(--accent);
+            border-bottom: 1px dashed var(--accent);
+            cursor: help;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .glossary-term:hover {
+            color: var(--accent-hover);
+            background: rgba(56, 189, 248, 0.1);
+        }
+        .glossary-popover {
+            position: absolute;
+            z-index: 10000;
+            background: #1e293b;
+            border: 1px solid var(--accent);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            font-size: 0.88rem;
+            color: var(--text-primary);
+            max-width: 340px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            line-height: 1.5;
+        }
+        .glossary-popover strong {
+            color: var(--accent);
+        }
+
         #highlight-toolbar {
             display: none; position: fixed; z-index: 9999;
             background: #1e293b; border: 1px solid var(--border);
@@ -599,6 +629,68 @@ const htmlTemplate = `<!DOCTYPE html>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
 
 <script>
+// ── Glossary Data ────────────────────────────────────────────────────────
+const glossary = {
+    'goroutine': 'A lightweight, user-space thread managed by the Go runtime. Goroutines start with a tiny 2KB stack that grows/shrinks dynamically and are multiplexed onto OS threads by the GMP scheduler.',
+    'channel': 'A typed conduit in Go used to send and receive values between goroutines, enabling safe synchronization and communication without explicit locks.',
+    'gmp': 'Go\'s scheduler architecture: G = Goroutine (execution state/stack), M = Machine (OS thread), P = Processor (execution context/logical resource needed to run Go code).',
+    'escape-analysis': 'A compiler phase that decides if a variable can be safely allocated on the stack (when its lifetime is bound to the stack frame) or must "escape" to the heap.',
+    'garbage-collection': 'Go\'s concurrent, tri-color mark-and-sweep garbage collector that automatically manages heap-allocated memory with minimal "Stop-The-World" pauses.',
+    'heap': 'A shared pool of memory used for dynamic allocations. Heap allocation has overhead and requires reclamation by the Garbage Collector.',
+    'stack': 'A fast, per-goroutine memory pool used to store local variables. Stack frames are automatically cleaned up when their functions return.',
+    'interface': 'A set of method signatures that define behavior. Go interfaces are satisfied implicitly (structural duck typing): a type implements an interface simply by implementing its methods.',
+    'pointer': 'A variable storing the memory address of another variable, allowing functions to share and modify the same underlying data rather than copying it.',
+    'struct': 'A user-defined type that groups together fields of different types, representing structured data models (like db.User or db.Grant) in Go.',
+    'slice': 'A descriptor for a contiguous segment of an underlying array, containing a pointer to the array, a length, and a capacity. Slices grow dynamically.',
+    'map': 'A built-in hash table type in Go providing O(1) lookups, insertions, and deletions. Maps are not thread-safe and must be synchronized in concurrent settings.',
+    'context': 'A package (context) that carries cancellation signals, deadlines, and request-scoped metadata across API boundaries and goroutines.',
+    'reflection': 'The runtime inspection of types, variables, and values using the reflect package. Used in JSON encoding, but carries CPU performance penalties.',
+    'generics': 'Compile-time type parameters that enable writing reusable, type-safe structures and functions without dynamic dynamic-dispatch overhead.',
+    'mutex': 'A mutual exclusion lock (sync.Mutex or sync.RWMutex) used to serialize access to shared memory, preventing data races.',
+    'waitgroup': 'sync.WaitGroup is a synchronization primitive used to wait for a collection of goroutines to finish executing.',
+    'atomic': 'Low-level, lock-free synchronization operations provided by the sync/atomic package that run directly on CPU memory.',
+    'unsafe': 'A package (unsafe) that bypasses Go\'s type safety rules, allowing direct memory allocation, layout inspection, and pointer arithmetic.',
+    'cgo': 'A mechanism enabling Go code to call C libraries, introducing overhead due to stack swaps and disabling certain runtime optimizations.',
+    'wasm': 'WebAssembly, a binary instruction format Go can compile to, allowing Go backend logic to execute in the web browser.',
+    'pprof': 'Go\'s built-in profiling framework for analyzing CPU profiles, heap usage, blocking operations, and thread allocations to find performance bottlenecks.',
+    'gofmt': 'Go\'s standard code formatter that enforces a uniform style across all Go source files, eliminating styling debates.',
+    'json': 'JavaScript Object Notation, the standard format for Web API payloads. Go maps JSON keys to struct fields using reflection-based struct tags.',
+    'middleware': 'A decorator function wrapping an HTTP handler to execute common logic (auth, logging, headers, geo-blocking) before/after the handler runs.',
+    'preemption': 'The runtime interrupting a running goroutine (asynchronously in Go 1.14+ via OS signals) to prevent it from hogging CPU threads.',
+    'memory-alignment': 'The alignment of structural fields to matching memory offsets (e.g., 8-byte boundaries) to optimize memory access speeds and structure sizes.',
+    'profiling': 'The practice of gathering runtime execution statistics (CPU, memory, lock contention) to diagnose resource leaks and optimize hot paths.'
+};
+
+// ── Glossary Interaction ──────────────────────────────────────────────────
+document.addEventListener('click', e => {
+    const activePopover = document.querySelector('.glossary-popover');
+    if (activePopover && !activePopover.contains(e.target) && !e.target.classList.contains('glossary-term')) {
+        activePopover.remove();
+    }
+
+    const termEl = e.target.closest('.glossary-term');
+    if (termEl) {
+        const key = termEl.dataset.term;
+        const text = glossary[key] || 'Definition not found.';
+        
+        const popover = document.createElement('div');
+        popover.className = 'glossary-popover';
+        popover.innerHTML = '<strong>' + termEl.textContent + '</strong>: ' + text;
+        document.body.appendChild(popover);
+        
+        const rect = termEl.getBoundingClientRect();
+        popover.style.top = (rect.bottom + window.scrollY + 6) + 'px';
+        popover.style.left = Math.max(10, rect.left + window.scrollX - 50) + 'px';
+        
+        const popoverRect = popover.getBoundingClientRect();
+        if (popoverRect.right > window.innerWidth) {
+            popover.style.left = (window.innerWidth - popoverRect.width - 20) + 'px';
+        }
+        
+        e.stopPropagation();
+    }
+});
+
 // ── Data layer ──────────────────────────────────────────────────────────
 const KEYS = { bookmarks: 'sme_bookmarks', highlights: 'sme_highlights', notes: 'sme_notes' };
 
@@ -652,6 +744,7 @@ function getSectionTitle(sec) {
     return h1 ? h1.textContent.trim() : sec.id;
 }
 
+// Ensure bookmark button shows active status correctly
 function updateBookmarkBtn(btn, sectionId) {
     const active = !!dbLoad(KEYS.bookmarks)[sectionId];
     btn.classList.toggle('bookmarked', active);
@@ -688,6 +781,9 @@ function injectButtons() {
             else bms[sec.id] = { title: getSectionTitle(sec), timestamp: Date.now() };
             dbSave(KEYS.bookmarks, bms);
             updateBookmarkBtn(bm, sec.id);
+            if (document.querySelector('[data-tab="bookmarks"]').classList.contains('active')) {
+                renderBookmarks();
+            }
         });
 
         // Note button
@@ -765,6 +861,9 @@ document.getElementById('note-modal-save').addEventListener('click', () => {
     document.getElementById('note-modal-overlay').classList.remove('visible');
     const sec = document.getElementById(newNote.sectionId);
     if (sec) { const nb = sec.querySelector('.section-note-btn'); if (nb) updateNoteCount(nb, newNote.sectionId); }
+    if (document.querySelector('[data-tab="notes"]').classList.contains('active')) {
+        renderNotes();
+    }
     _noteCtx = null;
 });
 
@@ -814,6 +913,7 @@ function closestSection(node) {
 document.addEventListener('mouseup', e => {
     if (toolbar.contains(e.target)) return;
     if (document.getElementById('note-modal-overlay').contains(e.target)) return;
+    if (e.target.closest('[class^="hl-"]')) return; // handled by click listener
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || sel.toString().trim().length < 3) { hideToolbar(); return; }
     _range = sel.getRangeAt(0).cloneRange();
@@ -857,7 +957,7 @@ document.querySelector('.hl-clear-btn').addEventListener('click', e => {
     if (!_range) return;
     const ancestor = _range.commonAncestorContainer;
     const container = ancestor.nodeType === 3 ? ancestor.parentElement : ancestor;
-    container.querySelectorAll('.hl-yellow,.hl-green,.hl-pink,.hl-blue').forEach(span => {
+    container.querySelectorAll('[class^="hl-"]').forEach(span => {
         if (_range.intersectsNode(span)) {
             const p = span.parentNode;
             while (span.firstChild) p.insertBefore(span.firstChild, span);
@@ -869,25 +969,131 @@ document.querySelector('.hl-clear-btn').addEventListener('click', e => {
     window.getSelection().removeAllRanges();
 });
 
+// Click on existing highlight to show color/remove toolbar
+document.addEventListener('click', e => {
+    const hlSpan = e.target.closest('[class^="hl-"]');
+    if (hlSpan) {
+        const range = document.createRange();
+        range.selectNode(hlSpan);
+        _range = range;
+        
+        const rect = hlSpan.getBoundingClientRect();
+        toolbar.style.top  = (rect.top + window.scrollY - 48) + 'px';
+        toolbar.style.left = (rect.left + rect.width / 2 - 100) + 'px';
+        toolbar.classList.add('visible');
+        e.stopPropagation();
+    }
+});
+
+function highlightRange(range, color, hlId) {
+    const startContainer = range.startContainer;
+    const endContainer = range.endContainer;
+    const startOffset = range.startOffset;
+    const endOffset = range.endOffset;
+
+    const textNodes = [];
+    const walker = document.createTreeWalker(
+        range.commonAncestorContainer,
+        NodeFilter.SHOW_TEXT,
+        {
+            acceptNode: function(node) {
+                if (range.intersectsNode(node)) {
+                    return NodeFilter.FILTER_ACCEPT;
+                }
+                return NodeFilter.FILTER_REJECT;
+            }
+        }
+    );
+
+    let node;
+    while ((node = walker.nextNode())) {
+        textNodes.push(node);
+    }
+
+    if (textNodes.length === 0 && startContainer.nodeType === 3) {
+        textNodes.push(startContainer);
+    }
+
+    textNodes.forEach(node => {
+        let textNode = node;
+        let start = 0;
+        let end = textNode.textContent.length;
+
+        if (textNode === startContainer) {
+            start = startOffset;
+        }
+        if (textNode === endContainer) {
+            end = endOffset;
+        }
+
+        if (start < end) {
+            if (end < textNode.textContent.length) {
+                textNode.splitText(end);
+            }
+            if (start > 0) {
+                textNode = textNode.splitText(start);
+            }
+
+            const span = document.createElement('span');
+            span.className = 'hl-' + color;
+            span.dataset.hlId = hlId;
+            textNode.parentNode.insertBefore(span, textNode);
+            span.appendChild(textNode);
+        }
+    });
+}
+
+function findRangeForText(container, text) {
+    const plainText = container.textContent;
+    const index = plainText.indexOf(text);
+    if (index === -1) return null;
+
+    const range = document.createRange();
+    let charCount = 0;
+    let startNode = null;
+    let startOffset = 0;
+    let endNode = null;
+    let endOffset = 0;
+
+    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+    let node;
+    while ((node = walker.nextNode())) {
+        const nodeLength = node.textContent.length;
+        if (!startNode && charCount + nodeLength > index) {
+            startNode = node;
+            startOffset = index - charCount;
+        }
+        if (startNode && charCount + nodeLength >= index + text.length) {
+            endNode = node;
+            endOffset = (index + text.length) - charCount;
+            break;
+        }
+        charCount += nodeLength;
+    }
+
+    if (startNode && endNode) {
+        range.setStart(startNode, startOffset);
+        range.setEnd(endNode, endOffset);
+        return range;
+    }
+    return null;
+}
+
 function applyHL(range, color) {
     const sec = closestSection(range.startContainer);
     const text = range.toString().trim();
     if (!text) return;
+    const hlId = Date.now().toString();
+
     try {
-        const span = document.createElement('span');
-        span.className = 'hl-' + color;
-        span.dataset.hlId = Date.now().toString();
-        range.surroundContents(span);
-    } catch {
-        const frag = range.extractContents();
-        const span = document.createElement('span');
-        span.className = 'hl-' + color;
-        span.dataset.hlId = Date.now().toString();
-        span.appendChild(frag);
-        range.insertNode(span);
+        highlightRange(range, color, hlId);
+    } catch (err) {
+        console.error('Failed to highlight:', err);
+        return;
     }
+
     const hls = dbLoad(KEYS.highlights);
-    hls.push({ id: Date.now().toString(), sectionId: sec ? sec.id : 'unknown', text: text.substring(0, 300), color, timestamp: Date.now() });
+    hls.push({ id: hlId, sectionId: sec ? sec.id : 'unknown', text: text.substring(0, 300), color, timestamp: Date.now() });
     dbSave(KEYS.highlights, hls);
 }
 
@@ -901,25 +1107,18 @@ function syncHighlights() {
 }
 
 function restoreHighlights() {
-    dbLoad(KEYS.highlights).forEach(hl => {
+    const highlights = dbLoad(KEYS.highlights);
+    highlights.forEach(hl => {
+        if (document.querySelector('[data-hl-id="' + hl.id + '"]')) return;
         const sec = document.getElementById(hl.sectionId);
         if (!sec || !hl.text) return;
-        const needle = hl.text.substring(0, 50);
-        const walker = document.createTreeWalker(sec, NodeFilter.SHOW_TEXT);
-        let node;
-        while ((node = walker.nextNode())) {
-            const idx = node.textContent.indexOf(needle);
-            if (idx !== -1) {
-                try {
-                    const r = document.createRange();
-                    r.setStart(node, idx);
-                    r.setEnd(node, Math.min(idx + hl.text.length, node.textContent.length));
-                    const span = document.createElement('span');
-                    span.className = 'hl-' + hl.color;
-                    span.dataset.hlId = hl.id;
-                    r.surroundContents(span);
-                } catch {}
-                break;
+
+        const range = findRangeForText(sec, hl.text);
+        if (range) {
+            try {
+                highlightRange(range, hl.color, hl.id);
+            } catch (err) {
+                console.error('Failed to restore highlight:', err);
             }
         }
     });
@@ -942,6 +1141,13 @@ document.addEventListener('keydown', e => {
 
 function esc(str) {
     return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Hook into Prism syntax highlighting complete event to restore highlights inside code blocks
+if (window.Prism) {
+    Prism.hooks.add('complete', function(env) {
+        setTimeout(restoreHighlights, 50);
+    });
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────

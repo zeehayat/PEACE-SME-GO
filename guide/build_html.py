@@ -413,6 +413,34 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         .hl-pink   { background: var(--hl-pink);   border-radius: 2px; padding: 1px 0; }
         .hl-blue   { background: var(--hl-blue);   border-radius: 2px; padding: 1px 0; }
 
+        .glossary-term {
+            color: var(--accent);
+            border-bottom: 1px dashed var(--accent);
+            cursor: help;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .glossary-term:hover {
+            color: var(--accent-hover);
+            background: rgba(56, 189, 248, 0.1);
+        }
+        .glossary-popover {
+            position: absolute;
+            z-index: 10000;
+            background: #1e293b;
+            border: 1px solid var(--accent);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            font-size: 0.88rem;
+            color: var(--text-primary);
+            max-width: 340px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            line-height: 1.5;
+        }
+        .glossary-popover strong {
+            color: var(--accent);
+        }
+
         /* ── Floating Highlight Toolbar ── */
         #highlight-toolbar {
             display: none;
@@ -712,27 +740,78 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
 
     <script>
-    // ═══════════════════════════════════════════════════════════════════
-    //  DATA LAYER — localStorage keys
-    // ═══════════════════════════════════════════════════════════════════
-    const KEYS = {
-        bookmarks:  'sme_guide_bookmarks',
-        highlights: 'sme_guide_highlights',
-        notes:      'sme_guide_notes',
+    // ── Glossary Data ────────────────────────────────────────────────────────
+    const glossary = {
+        'goroutine': 'A lightweight, user-space thread managed by the Go runtime. Goroutines start with a tiny 2KB stack that grows/shrinks dynamically and are multiplexed onto OS threads by the GMP scheduler.',
+        'channel': 'A typed conduit in Go used to send and receive values between goroutines, enabling safe synchronization and communication without explicit locks.',
+        'gmp': 'Go\'s scheduler architecture: G = Goroutine (execution state/stack), M = Machine (OS thread), P = Processor (execution context/logical resource needed to run Go code).',
+        'escape-analysis': 'A compiler phase that decides if a variable can be safely allocated on the stack (when its lifetime is bound to the stack frame) or must "escape" to the heap.',
+        'garbage-collection': 'Go\'s concurrent, tri-color mark-and-sweep garbage collector that automatically manages heap-allocated memory with minimal "Stop-The-World" pauses.',
+        'heap': 'A shared pool of memory used for dynamic allocations. Heap allocation has overhead and requires reclamation by the Garbage Collector.',
+        'stack': 'A fast, per-goroutine memory pool used to store local variables. Stack frames are automatically cleaned up when their functions return.',
+        'interface': 'A set of method signatures that define behavior. Go interfaces are satisfied implicitly (structural duck typing): a type implements an interface simply by implementing its methods.',
+        'pointer': 'A variable storing the memory address of another variable, allowing functions to share and modify the same underlying data rather than copying it.',
+        'struct': 'A user-defined type that groups together fields of different types, representing structured data models (like db.User or db.Grant) in Go.',
+        'slice': 'A descriptor for a contiguous segment of an underlying array, containing a pointer to the array, a length, and a capacity. Slices grow dynamically.',
+        'map': 'A built-in hash table type in Go providing O(1) lookups, insertions, and deletions. Maps are not thread-safe and must be synchronized in concurrent settings.',
+        'context': 'A package (context) that carries cancellation signals, deadlines, and request-scoped metadata across API boundaries and goroutines.',
+        'reflection': 'The runtime inspection of types, variables, and values using the reflect package. Used in JSON encoding, but carries CPU performance penalties.',
+        'generics': 'Compile-time type parameters that enable writing reusable, type-safe structures and functions without dynamic dynamic-dispatch overhead.',
+        'mutex': 'A mutual exclusion lock (sync.Mutex or sync.RWMutex) used to serialize access to shared memory, preventing data races.',
+        'waitgroup': 'sync.WaitGroup is a synchronization primitive used to wait for a collection of goroutines to finish executing.',
+        'atomic': 'Low-level, lock-free synchronization operations provided by the sync/atomic package that run directly on CPU memory.',
+        'unsafe': 'A package (unsafe) that bypasses Go\'s type safety rules, allowing direct memory allocation, layout inspection, and pointer arithmetic.',
+        'cgo': 'A mechanism enabling Go code to call C libraries, introducing overhead due to stack swaps and disabling certain runtime optimizations.',
+        'wasm': 'WebAssembly, a binary instruction format Go can compile to, allowing Go backend logic to execute in the web browser.',
+        'pprof': 'Go\'s built-in profiling framework for analyzing CPU profiles, heap usage, blocking operations, and thread allocations to find performance bottlenecks.',
+        'gofmt': 'Go\'s standard code formatter that enforces a uniform style across all Go source files, eliminating styling debates.',
+        'json': 'JavaScript Object Notation, the standard format for Web API payloads. Go maps JSON keys to struct fields using reflection-based struct tags.',
+        'middleware': 'A decorator function wrapping an HTTP handler to execute common logic (auth, logging, headers, geo-blocking) before/after the handler runs.',
+        'preemption': 'The runtime interrupting a running goroutine (asynchronously in Go 1.14+ via OS signals) to prevent it from hogging CPU threads.',
+        'memory-alignment': 'The alignment of structural fields to matching memory offsets (e.g., 8-byte boundaries) to optimize memory access speeds and structure sizes.',
+        'profiling': 'The practice of gathering runtime execution statistics (CPU, memory, lock contention) to diagnose resource leaks and optimize hot paths.'
     };
 
-    function load(key) {
+    // ── Glossary Interaction ──────────────────────────────────────────────────
+    document.addEventListener('click', e => {
+        const activePopover = document.querySelector('.glossary-popover');
+        if (activePopover && !activePopover.contains(e.target) && !e.target.classList.contains('glossary-term')) {
+            activePopover.remove();
+        }
+
+        const termEl = e.target.closest('.glossary-term');
+        if (termEl) {
+            const key = termEl.dataset.term;
+            const text = glossary[key] || 'Definition not found.';
+            
+            const popover = document.createElement('div');
+            popover.className = 'glossary-popover';
+            popover.innerHTML = '<strong>' + termEl.textContent + '</strong>: ' + text;
+            document.body.appendChild(popover);
+            
+            const rect = termEl.getBoundingClientRect();
+            popover.style.top = (rect.bottom + window.scrollY + 6) + 'px';
+            popover.style.left = Math.max(10, rect.left + window.scrollX - 50) + 'px';
+            
+            const popoverRect = popover.getBoundingClientRect();
+            if (popoverRect.right > window.innerWidth) {
+                popover.style.left = (window.innerWidth - popoverRect.width - 20) + 'px';
+            }
+            
+            e.stopPropagation();
+        }
+    });
+
+    // ── Data layer ──────────────────────────────────────────────────────────
+    const KEYS = { bookmarks: 'sme_bookmarks', highlights: 'sme_highlights', notes: 'sme_notes' };
+
+    function dbLoad(key) {
         try { return JSON.parse(localStorage.getItem(key) || (key === KEYS.bookmarks ? '{}' : '[]')); }
         catch { return key === KEYS.bookmarks ? {} : []; }
     }
+    function dbSave(key, data) { localStorage.setItem(key, JSON.stringify(data)); }
 
-    function save(key, data) {
-        localStorage.setItem(key, JSON.stringify(data));
-    }
-
-    // ═══════════════════════════════════════════════════════════════════
-    //  SIDEBAR TABS
-    // ═══════════════════════════════════════════════════════════════════
+    // ── Sidebar tabs ─────────────────────────────────────────────────────────
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -744,163 +823,130 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         });
     });
 
-    // ═══════════════════════════════════════════════════════════════════
-    //  TOC SEARCH FILTER
-    // ═══════════════════════════════════════════════════════════════════
+    // ── TOC filter ────────────────────────────────────────────────────────────
     document.getElementById('toc-search').addEventListener('input', function() {
         const q = this.value.toLowerCase();
         document.querySelectorAll('#nav-list .nav-item').forEach(item => {
-            const text = item.textContent.toLowerCase();
-            item.style.display = text.includes(q) ? '' : 'none';
+            item.style.display = item.textContent.toLowerCase().includes(q) ? '' : 'none';
         });
     });
 
-    // ═══════════════════════════════════════════════════════════════════
-    //  ACTIVE NAV HIGHLIGHTER + READING PROGRESS
-    // ═══════════════════════════════════════════════════════════════════
+    // ── Progress bar + scroll-to-top ─────────────────────────────────────────
     const sections = document.querySelectorAll('section');
     const navLinks = document.querySelectorAll('.nav-link');
     const progressBar = document.getElementById('progress-bar');
     const scrollTopBtn = document.getElementById('scroll-top');
 
-    function updateProgress() {
-        const scrolled = window.scrollY;
-        const total = document.body.scrollHeight - window.innerHeight;
-        const pct = total > 0 ? scrolled / total : 0;
-        progressBar.style.transform = `scaleX(${pct})`;
-        scrollTopBtn.classList.toggle('visible', scrolled > 400);
+    window.addEventListener('scroll', () => {
+        const pct = window.scrollY / Math.max(1, document.body.scrollHeight - window.innerHeight);
+        progressBar.style.transform = 'scaleX(' + pct + ')';
+        scrollTopBtn.classList.toggle('visible', window.scrollY > 400);
 
         let current = '';
-        sections.forEach(sec => {
-            if (window.scrollY >= (sec.offsetTop - 150)) current = sec.getAttribute('id');
-        });
-        navLinks.forEach(link => {
-            link.classList.toggle('active', link.getAttribute('href').includes(current));
-        });
-    }
+        sections.forEach(sec => { if (window.scrollY >= sec.offsetTop - 150) current = sec.id; });
+        navLinks.forEach(link => link.classList.toggle('active', link.getAttribute('href').includes(current)));
+    }, { passive: true });
 
-    window.addEventListener('scroll', updateProgress, { passive: true });
+    scrollTopBtn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
 
-    scrollTopBtn.addEventListener('click', () => {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
-
-    // ═══════════════════════════════════════════════════════════════════
-    //  BOOKMARKS
-    // ═══════════════════════════════════════════════════════════════════
+    // ── Bookmark buttons ──────────────────────────────────────────────────────
     function getSectionTitle(sec) {
         const h1 = sec.querySelector('h1');
         return h1 ? h1.textContent.trim() : sec.id;
     }
 
-    function injectBookmarkButtons() {
+    // Ensure bookmark button shows active status correctly
+    function updateBookmarkBtn(btn, sectionId) {
+        const active = !!dbLoad(KEYS.bookmarks)[sectionId];
+        btn.classList.toggle('bookmarked', active);
+        btn.title = active ? 'Remove bookmark' : 'Bookmark this chapter';
+    }
+
+    function updateNoteCount(noteBtn, sectionId) {
+        const count = dbLoad(KEYS.notes).filter(n => n.sectionId === sectionId).length;
+        const badge = noteBtn.querySelector('.nbadge');
+        if (badge) badge.textContent = count > 0 ? ' ' + count : '';
+    }
+
+    function injectButtons() {
         sections.forEach(sec => {
             const h1 = sec.querySelector('h1');
             if (!h1) return;
 
-            // Wrap h1 in a title row div
+            // Wrap h1 in row
             const row = document.createElement('div');
             row.className = 'section-title-row';
             h1.parentNode.insertBefore(row, h1);
             row.appendChild(h1);
 
             // Bookmark button
-            const btn = document.createElement('button');
-            btn.className = 'bookmark-btn';
-            btn.title = 'Bookmark this chapter';
-            btn.textContent = '★';
-            row.appendChild(btn);
-
-            // Note button
-            const noteBtn = document.createElement('button');
-            noteBtn.className = 'section-note-btn';
-            noteBtn.innerHTML = '📝 <span class="note-badge-inline"></span>';
-            noteBtn.title = 'Add note to this chapter';
-            sec.appendChild(noteBtn);
-
-            updateBookmarkBtn(btn, sec.id);
-
-            btn.addEventListener('click', (e) => {
+            const bm = document.createElement('button');
+            bm.className = 'bookmark-btn';
+            bm.innerHTML = '★';
+            row.appendChild(bm);
+            updateBookmarkBtn(bm, sec.id);
+            bm.addEventListener('click', e => {
                 e.stopPropagation();
-                toggleBookmark(sec.id, getSectionTitle(sec));
-                updateBookmarkBtn(btn, sec.id);
+                const bms = dbLoad(KEYS.bookmarks);
+                if (bms[sec.id]) delete bms[sec.id];
+                else bms[sec.id] = { title: getSectionTitle(sec), timestamp: Date.now() };
+                dbSave(KEYS.bookmarks, bms);
+                updateBookmarkBtn(bm, sec.id);
+                if (document.querySelector('[data-tab="bookmarks"]').classList.contains('active')) {
+                    renderBookmarks();
+                }
             });
 
-            noteBtn.addEventListener('click', (e) => {
+            // Note button
+            const nb = document.createElement('button');
+            nb.className = 'section-note-btn';
+            nb.innerHTML = '📝 Note<span class="nbadge"></span>';
+            nb.title = 'Add note to this chapter';
+            sec.appendChild(nb);
+            updateNoteCount(nb, sec.id);
+            nb.addEventListener('click', e => {
                 e.stopPropagation();
                 openNoteModal(sec.id, getSectionTitle(sec));
             });
-
-            updateNoteBadge(noteBtn, sec.id);
         });
     }
 
-    function updateBookmarkBtn(btn, sectionId) {
-        const bms = load(KEYS.bookmarks);
-        btn.classList.toggle('bookmarked', !!bms[sectionId]);
-        btn.title = bms[sectionId] ? 'Remove bookmark' : 'Bookmark this chapter';
-    }
-
-    function updateNoteBadge(btn, sectionId) {
-        const notes = load(KEYS.notes);
-        const count = notes.filter(n => n.sectionId === sectionId).length;
-        const badge = btn.querySelector('.note-badge-inline');
-        if (badge) badge.textContent = count > 0 ? count : '';
-    }
-
-    function toggleBookmark(sectionId, title) {
-        const bms = load(KEYS.bookmarks);
-        if (bms[sectionId]) {
-            delete bms[sectionId];
-        } else {
-            bms[sectionId] = { title, timestamp: Date.now() };
-        }
-        save(KEYS.bookmarks, bms);
-    }
-
+    // ── Bookmarks panel ───────────────────────────────────────────────────────
     function renderBookmarks() {
         const panel = document.getElementById('bookmarks-panel');
-        const bms = load(KEYS.bookmarks);
+        const bms = dbLoad(KEYS.bookmarks);
         const entries = Object.entries(bms).sort((a, b) => b[1].timestamp - a[1].timestamp);
-
         if (!entries.length) {
-            panel.innerHTML = '<div class="panel-empty">No bookmarks yet.<br>Hover over a chapter and click ★ to save it.</div>';
+            panel.innerHTML = '<div class="panel-empty">No bookmarks yet.<br>Hover a chapter and click ★ to save.</div>';
             return;
         }
-
-        panel.innerHTML = entries.map(([id, { title, timestamp }]) => `
-            <div class="bm-item">
-                <a href="#${id}" onclick="switchToTOC()">${title}</a>
-                <div class="bm-ts">${new Date(timestamp).toLocaleDateString()}</div>
-                <button class="panel-delete-btn" onclick="removeBookmark('${id}')">✕</button>
-            </div>
-        `).join('');
+        panel.innerHTML = entries.map(([id, { title, timestamp }]) =>
+            '<div class="bm-item">' +
+            '<a href="#' + id + '" onclick="switchTab(\'toc\')">' + esc(title) + '</a>' +
+            '<div class="bm-ts">' + new Date(timestamp).toLocaleDateString() + '</div>' +
+            '<button class="panel-delete-btn" onclick="removeBookmark(\'' + id + '\')">✕</button>' +
+            '</div>'
+        ).join('');
     }
 
-    window.removeBookmark = function(sectionId) {
-        const bms = load(KEYS.bookmarks);
-        delete bms[sectionId];
-        save(KEYS.bookmarks, bms);
+    window.removeBookmark = function(id) {
+        const bms = dbLoad(KEYS.bookmarks);
+        delete bms[id];
+        dbSave(KEYS.bookmarks, bms);
         renderBookmarks();
-        // Update the bookmark button in the page
-        const sec = document.getElementById(sectionId);
-        if (sec) {
-            const btn = sec.querySelector('.bookmark-btn');
-            if (btn) updateBookmarkBtn(btn, sectionId);
-        }
+        const sec = document.getElementById(id);
+        if (sec) { const btn = sec.querySelector('.bookmark-btn'); if (btn) updateBookmarkBtn(btn, id); }
     };
 
-    window.switchToTOC = function() {
-        document.querySelector('[data-tab="toc"]').click();
+    window.switchTab = function(tab) {
+        document.querySelector('[data-tab="' + tab + '"]').click();
     };
 
-    // ═══════════════════════════════════════════════════════════════════
-    //  NOTES
-    // ═══════════════════════════════════════════════════════════════════
-    let _noteContext = null;  // { sectionId, sectionTitle }
+    // ── Notes system ──────────────────────────────────────────────────────────
+    let _noteCtx = null;
 
     function openNoteModal(sectionId, sectionTitle) {
-        _noteContext = { sectionId, sectionTitle };
+        _noteCtx = { sectionId, sectionTitle };
         document.getElementById('note-modal-section-label').textContent = 'Chapter: ' + sectionTitle;
         document.getElementById('note-textarea').value = '';
         document.getElementById('note-modal-overlay').classList.add('visible');
@@ -909,239 +955,316 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
     document.getElementById('note-modal-cancel').addEventListener('click', () => {
         document.getElementById('note-modal-overlay').classList.remove('visible');
-        _noteContext = null;
+        _noteCtx = null;
     });
 
-    document.getElementById('note-modal-overlay').addEventListener('click', (e) => {
-        if (e.target === document.getElementById('note-modal-overlay')) {
-            document.getElementById('note-modal-cancel').click();
-        }
+    document.getElementById('note-modal-overlay').addEventListener('click', e => {
+        if (e.target === e.currentTarget) document.getElementById('note-modal-cancel').click();
     });
 
     document.getElementById('note-modal-save').addEventListener('click', () => {
         const text = document.getElementById('note-textarea').value.trim();
-        if (!text || !_noteContext) return;
-
-        const notes = load(KEYS.notes);
-        notes.unshift({
-            id: Date.now().toString(),
-            sectionId: _noteContext.sectionId,
-            sectionTitle: _noteContext.sectionTitle,
-            text,
-            timestamp: Date.now(),
-        });
-        save(KEYS.notes, notes);
-
+        if (!text || !_noteCtx) return;
+        const notes = dbLoad(KEYS.notes);
+        const newNote = { id: Date.now().toString(), sectionId: _noteCtx.sectionId, sectionTitle: _noteCtx.sectionTitle, text, timestamp: Date.now() };
+        notes.unshift(newNote);
+        dbSave(KEYS.notes, notes);
         document.getElementById('note-modal-overlay').classList.remove('visible');
-        _noteContext = null;
-
-        // Update badge
-        const sec = document.getElementById(notes[0].sectionId);
-        if (sec) {
-            const noteBtn = sec.querySelector('.section-note-btn');
-            if (noteBtn) updateNoteBadge(noteBtn, notes[0].sectionId);
+        const sec = document.getElementById(newNote.sectionId);
+        if (sec) { const nb = sec.querySelector('.section-note-btn'); if (nb) updateNoteCount(nb, newNote.sectionId); }
+        if (document.querySelector('[data-tab="notes"]').classList.contains('active')) {
+            renderNotes();
         }
+        _noteCtx = null;
     });
 
-    // Ctrl+Enter to save note
-    document.getElementById('note-textarea').addEventListener('keydown', (e) => {
+    document.getElementById('note-textarea').addEventListener('keydown', e => {
         if (e.ctrlKey && e.key === 'Enter') document.getElementById('note-modal-save').click();
     });
 
     function renderNotes() {
         const panel = document.getElementById('notes-panel');
-        const notes = load(KEYS.notes);
-
+        const notes = dbLoad(KEYS.notes);
         if (!notes.length) {
-            panel.innerHTML = '<div class="panel-empty">No notes yet.<br>Hover a chapter and click 📝 to add a note.</div>';
+            panel.innerHTML = '<div class="panel-empty">No notes yet.<br>Select text or hover a chapter and click 📝.</div>';
             return;
         }
-
-        panel.innerHTML = notes.map(note => `
-            <div class="note-item">
-                <div class="note-item-section">
-                    <a href="#${note.sectionId}" onclick="switchToTOC()">${note.sectionTitle}</a>
-                </div>
-                <div class="note-item-text">${escapeHtml(note.text)}</div>
-                <div class="note-ts">${new Date(note.timestamp).toLocaleString()}</div>
-                <button class="panel-delete-btn" onclick="removeNote('${note.id}')">✕</button>
-            </div>
-        `).join('');
+        panel.innerHTML = notes.map(n =>
+            '<div class="note-item">' +
+            '<div class="note-item-section"><a href="#' + n.sectionId + '" onclick="switchTab(\'toc\')">' + esc(n.sectionTitle) + '</a></div>' +
+            '<div class="note-item-text">' + esc(n.text) + '</div>' +
+            '<div class="note-ts">' + new Date(n.timestamp).toLocaleString() + '</div>' +
+            '<button class="panel-delete-btn" onclick="removeNote(\'' + n.id + '\')">✕</button>' +
+            '</div>'
+        ).join('');
     }
 
     window.removeNote = function(noteId) {
-        let notes = load(KEYS.notes);
+        let notes = dbLoad(KEYS.notes);
         const note = notes.find(n => n.id === noteId);
         notes = notes.filter(n => n.id !== noteId);
-        save(KEYS.notes, notes);
+        dbSave(KEYS.notes, notes);
         renderNotes();
-        // Update badge
         if (note) {
             const sec = document.getElementById(note.sectionId);
-            if (sec) {
-                const noteBtn = sec.querySelector('.section-note-btn');
-                if (noteBtn) updateNoteBadge(noteBtn, note.sectionId);
-            }
+            if (sec) { const nb = sec.querySelector('.section-note-btn'); if (nb) updateNoteCount(nb, note.sectionId); }
         }
     };
 
-    function escapeHtml(str) {
-        return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    }
-
-    // ═══════════════════════════════════════════════════════════════════
-    //  HIGHLIGHTS
-    // ═══════════════════════════════════════════════════════════════════
+    // ── Text highlights ───────────────────────────────────────────────────────
     const toolbar = document.getElementById('highlight-toolbar');
-    let _pendingRange = null;  // the saved Range when toolbar is shown
+    let _range = null;
 
-    function getClosestSection(node) {
+    function closestSection(node) {
         let el = node.nodeType === 3 ? node.parentElement : node;
         while (el && el.tagName !== 'SECTION') el = el.parentElement;
         return el;
     }
 
-    document.addEventListener('mouseup', (e) => {
-        // Don't trigger inside toolbar or modal
+    document.addEventListener('mouseup', e => {
         if (toolbar.contains(e.target)) return;
         if (document.getElementById('note-modal-overlay').contains(e.target)) return;
-
+        if (e.target.closest('[class^="hl-"]')) return; // handled by click listener
         const sel = window.getSelection();
-        if (!sel || sel.isCollapsed || !sel.toString().trim()) {
-            hideToolbar();
-            return;
-        }
-
-        const text = sel.toString().trim();
-        if (text.length < 3) { hideToolbar(); return; }
-
-        _pendingRange = sel.getRangeAt(0).cloneRange();
-
-        // Position toolbar above selection
-        const rect = _pendingRange.getBoundingClientRect();
-        toolbar.style.top = (rect.top + window.scrollY - 48) + 'px';
+        if (!sel || sel.isCollapsed || sel.toString().trim().length < 3) { hideToolbar(); return; }
+        _range = sel.getRangeAt(0).cloneRange();
+        const rect = _range.getBoundingClientRect();
+        toolbar.style.top  = (rect.top + window.scrollY - 48) + 'px';
         toolbar.style.left = (rect.left + rect.width / 2 - 100) + 'px';
         toolbar.classList.add('visible');
     });
 
-    document.addEventListener('mousedown', (e) => {
-        if (!toolbar.contains(e.target)) hideToolbar();
-    });
+    document.addEventListener('mousedown', e => { if (!toolbar.contains(e.target)) hideToolbar(); });
 
-    function hideToolbar() {
-        toolbar.classList.remove('visible');
-        _pendingRange = null;
-    }
+    function hideToolbar() { toolbar.classList.remove('visible'); _range = null; }
 
-    // Color buttons
     document.querySelectorAll('.hl-color-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
+        btn.addEventListener('click', e => {
             e.stopPropagation();
-            if (!_pendingRange) return;
-            applyHighlight(_pendingRange, btn.dataset.color);
+            if (!_range) return;
+            applyHL(_range, btn.dataset.color);
             hideToolbar();
             window.getSelection().removeAllRanges();
         });
     });
 
-    // Note from selection
-    document.querySelector('.hl-note-btn').addEventListener('click', (e) => {
+    document.querySelector('.hl-note-btn').addEventListener('click', e => {
         e.stopPropagation();
-        if (!_pendingRange) return;
-        const sec = getClosestSection(_pendingRange.startContainer);
-        const sectionId = sec ? sec.id : 'unknown';
-        const sectionTitle = sec ? getSectionTitle(sec) : sectionId;
-        const selectedText = _pendingRange.toString().trim().substring(0, 120);
+        if (!_range) return;
+        const sec = closestSection(_range.startContainer);
+        const quoted = '"' + _range.toString().trim().substring(0, 120) + '"\n\n';
         hideToolbar();
         window.getSelection().removeAllRanges();
-        openNoteModal(sectionId, sectionTitle);
-        // Pre-fill textarea with selected quote
+        openNoteModal(sec ? sec.id : 'unknown', sec ? getSectionTitle(sec) : '');
         setTimeout(() => {
             const ta = document.getElementById('note-textarea');
-            if (selectedText) ta.value = `"${selectedText}"\n\n`;
-            ta.setSelectionRange(ta.value.length, ta.value.length);
+            ta.value = quoted;
+            ta.setSelectionRange(quoted.length, quoted.length);
         }, 60);
     });
 
-    // Clear highlight (if clicking on existing highlight)
-    document.querySelector('.hl-clear-btn').addEventListener('click', (e) => {
+    document.querySelector('.hl-clear-btn').addEventListener('click', e => {
         e.stopPropagation();
-        if (!_pendingRange) return;
-        // Find any highlight spans in the range and unwrap them
-        const ancestor = _pendingRange.commonAncestorContainer;
+        if (!_range) return;
+        const ancestor = _range.commonAncestorContainer;
         const container = ancestor.nodeType === 3 ? ancestor.parentElement : ancestor;
-        container.querySelectorAll('.hl-yellow,.hl-green,.hl-pink,.hl-blue').forEach(span => {
-            if (_pendingRange.intersectsNode(span)) {
-                const parent = span.parentNode;
-                while (span.firstChild) parent.insertBefore(span.firstChild, span);
+        container.querySelectorAll('[class^="hl-"]').forEach(span => {
+            if (_range.intersectsNode(span)) {
+                const p = span.parentNode;
+                while (span.firstChild) p.insertBefore(span.firstChild, span);
                 span.remove();
             }
         });
+        syncHighlights();
         hideToolbar();
         window.getSelection().removeAllRanges();
-        // Rebuild highlights from DOM state and save
-        saveHighlightsFromDOM();
     });
 
-    function applyHighlight(range, color) {
-        const sec = getClosestSection(range.startContainer);
-        const sectionId = sec ? sec.id : 'unknown';
-        const text = range.toString().trim();
-        if (!text) return;
+    // Click on existing highlight to show color/remove toolbar
+    document.addEventListener('click', e => {
+        const hlSpan = e.target.closest('[class^="hl-"]');
+        if (hlSpan) {
+            const range = document.createRange();
+            range.selectNode(hlSpan);
+            _range = range;
+            
+            const rect = hlSpan.getBoundingClientRect();
+            toolbar.style.top  = (rect.top + window.scrollY - 48) + 'px';
+            toolbar.style.left = (rect.left + rect.width / 2 - 100) + 'px';
+            toolbar.classList.add('visible');
+            e.stopPropagation();
+        }
+    });
 
-        try {
-            const span = document.createElement('span');
-            span.className = 'hl-' + color;
-            span.dataset.hlId = Date.now().toString();
-            range.surroundContents(span);
-        } catch {
-            // surroundContents fails if selection crosses element boundaries
-            // Fallback: wrap each text node
-            const frag = range.extractContents();
-            const span = document.createElement('span');
-            span.className = 'hl-' + color;
-            span.dataset.hlId = Date.now().toString();
-            span.appendChild(frag);
-            range.insertNode(span);
+    function highlightRange(range, color, hlId) {
+        const startContainer = range.startContainer;
+        const endContainer = range.endContainer;
+        const startOffset = range.startOffset;
+        const endOffset = range.endOffset;
+
+        const textNodes = [];
+        const walker = document.createTreeWalker(
+            range.commonAncestorContainer,
+            NodeFilter.SHOW_TEXT,
+            {
+                acceptNode: function(node) {
+                    if (range.intersectsNode(node)) {
+                        return NodeFilter.FILTER_ACCEPT;
+                    }
+                    return NodeFilter.FILTER_REJECT;
+                }
+            }
+        );
+
+        let node;
+        while ((node = walker.nextNode())) {
+            textNodes.push(node);
         }
 
-        // Save to localStorage
-        const highlights = load(KEYS.highlights);
-        highlights.push({
-            id: Date.now().toString(),
-            sectionId,
-            text: text.substring(0, 300),
-            color,
-            timestamp: Date.now(),
+        if (textNodes.length === 0 && startContainer.nodeType === 3) {
+            textNodes.push(startContainer);
+        }
+
+        textNodes.forEach(node => {
+            let textNode = node;
+            let start = 0;
+            let end = textNode.textContent.length;
+
+            if (textNode === startContainer) {
+                start = startOffset;
+            }
+            if (textNode === endContainer) {
+                end = endOffset;
+            }
+
+            if (start < end) {
+                if (end < textNode.textContent.length) {
+                    textNode.splitText(end);
+                }
+                if (start > 0) {
+                    textNode = textNode.splitText(start);
+                }
+
+                const span = document.createElement('span');
+                span.className = 'hl-' + color;
+                span.dataset.hlId = hlId;
+                textNode.parentNode.insertBefore(span, textNode);
+                span.appendChild(textNode);
+            }
         });
-        save(KEYS.highlights, highlights);
     }
 
-    function saveHighlightsFromDOM() {
-        const highlights = [];
+    function findRangeForText(container, text) {
+        const plainText = container.textContent;
+        const index = plainText.indexOf(text);
+        if (index === -1) return null;
+
+        const range = document.createRange();
+        let charCount = 0;
+        let startNode = null;
+        let startOffset = 0;
+        let endNode = null;
+        let endOffset = 0;
+
+        const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+        let node;
+        while ((node = walker.nextNode())) {
+            const nodeLength = node.textContent.length;
+            if (!startNode && charCount + nodeLength > index) {
+                startNode = node;
+                startOffset = index - charCount;
+            }
+            if (startNode && charCount + nodeLength >= index + text.length) {
+                endNode = node;
+                endOffset = (index + text.length) - charCount;
+                break;
+            }
+            charCount += nodeLength;
+        }
+
+        if (startNode && endNode) {
+            range.setStart(startNode, startOffset);
+            range.setEnd(endNode, endOffset);
+            return range;
+        }
+        return null;
+    }
+
+    function applyHL(range, color) {
+        const sec = closestSection(range.startContainer);
+        const text = range.toString().trim();
+        if (!text) return;
+        const hlId = Date.now().toString();
+
+        try {
+            highlightRange(range, color, hlId);
+        } catch (err) {
+            console.error('Failed to highlight:', err);
+            return;
+        }
+
+        const hls = dbLoad(KEYS.highlights);
+        hls.push({ id: hlId, sectionId: sec ? sec.id : 'unknown', text: text.substring(0, 300), color, timestamp: Date.now() });
+        dbSave(KEYS.highlights, hls);
+    }
+
+    function syncHighlights() {
+        const hls = [];
         document.querySelectorAll('[class^="hl-"]').forEach(span => {
-            const sec = getClosestSection(span);
-            highlights.push({
-                id: span.dataset.hlId || Date.now().toString(),
-                sectionId: sec ? sec.id : 'unknown',
-                text: span.textContent.trim().substring(0, 300),
-                color: span.className.replace('hl-', ''),
-                timestamp: Date.now(),
-            });
+            const sec = closestSection(span);
+            hls.push({ id: span.dataset.hlId || Date.now().toString(), sectionId: sec ? sec.id : 'unknown', text: span.textContent.trim().substring(0, 300), color: span.className.replace('hl-', ''), timestamp: Date.now() });
         });
-        save(KEYS.highlights, highlights);
+        dbSave(KEYS.highlights, hls);
     }
 
     function restoreHighlights() {
-        const highlights = load(KEYS.highlights);
-        if (!highlights.length) return;
-
+        const highlights = dbLoad(KEYS.highlights);
         highlights.forEach(hl => {
+            if (document.querySelector('[data-hl-id="' + hl.id + '"]')) return;
             const sec = document.getElementById(hl.sectionId);
             if (!sec || !hl.text) return;
 
-            // Find the text in the section using TreeWalker
-            const walker = document.createTreeWalker(sec, NodeFilter.SHOW_TEXT);
+            const range = findRangeForText(sec, hl.text);
+            if (range) {
+                try {
+                    highlightRange(range, hl.color, hl.id);
+                } catch (err) {
+                    console.error('Failed to restore highlight:', err);
+                }
+            }
+        });
+    }
+
+    // ── Keyboard shortcuts ────────────────────────────────────────────────────
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') {
+            if (document.getElementById('note-modal-overlay').classList.contains('visible')) {
+                document.getElementById('note-modal-cancel').click();
+            }
+            hideToolbar();
+        }
+        if (e.key === '/' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'TEXTAREA' && document.activeElement.tagName !== 'INPUT') {
+            e.preventDefault();
+            switchTab('toc');
+            document.getElementById('toc-search').focus();
+        }
+    });
+
+    function esc(str) {
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // Hook into Prism syntax highlighting complete event to restore highlights inside code blocks
+    if (window.Prism) {
+        Prism.hooks.add('complete', function(env) {
+            setTimeout(restoreHighlights, 50);
+        });
+    }
+
+    // ── Init ──────────────────────────────────────────────────────────────────
+    injectBookmarkButtons();
+    restoreHighlights();
+    </script>= document.createTreeWalker(sec, NodeFilter.SHOW_TEXT);
             let node;
             while ((node = walker.nextNode())) {
                 const idx = node.textContent.indexOf(hl.text.substring(0, 50));
@@ -1195,6 +1318,12 @@ def parse_markdown_to_html(md_text: str) -> str:
     html_out = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", md_text)
     html_out = re.sub(r"\*([^*]+)\*", r"<em>\1</em>", html_out)
 
+    def apply_inline(s: str) -> str:
+        s = re.sub(r"`([^`]+)`", r"<code>\1</code>", s)
+        s = re.sub(r"\[([^\]]+)\]\(term:([^)]+)\)", r'<span class="glossary-term" data-term="\2">\1</span>', s)
+        s = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r'<a href="\2">\1</a>', s)
+        return s
+
     lines = html_out.splitlines()
     parsed_lines = []
 
@@ -1244,9 +1373,7 @@ def parse_markdown_to_html(md_text: str) -> str:
                     in_list = False
                 parsed_lines.append("<ol>")
                 in_ordered_list = True
-            content = ordered_match.group(1)
-            content = re.sub(r"`([^`]+)`", r"<code>\1</code>", content)
-            content = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r'<a href="\2">\1</a>', content)
+            content = apply_inline(ordered_match.group(1))
             parsed_lines.append(f"<li>{content}</li>")
             continue
         elif in_ordered_list and not striped_line:
@@ -1261,9 +1388,7 @@ def parse_markdown_to_html(md_text: str) -> str:
                     in_ordered_list = False
                 parsed_lines.append("<ul>")
                 in_list = True
-            content = re.sub(r"^[-*]\s+", "", line).strip()
-            content = re.sub(r"`([^`]+)`", r"<code>\1</code>", content)
-            content = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r'<a href="\2">\1</a>', content)
+            content = apply_inline(re.sub(r"^[-*]\s+", "", line).strip())
             parsed_lines.append(f"<li>{content}</li>")
             continue
         elif in_list and not striped_line:
@@ -1273,8 +1398,7 @@ def parse_markdown_to_html(md_text: str) -> str:
         # Headers
         if striped_line.startswith("#"):
             level = len(striped_line) - len(striped_line.lstrip('#'))
-            header_text = striped_line.lstrip('#').strip()
-            header_text = re.sub(r"`([^`]+)`", r"<code>\1</code>", header_text)
+            header_text = apply_inline(striped_line.lstrip('#').strip())
             parsed_lines.append(f"<h{level}>{header_text}</h{level}>")
             continue
 
@@ -1287,11 +1411,11 @@ def parse_markdown_to_html(md_text: str) -> str:
         if striped_line.startswith(">"):
             alert_content = striped_line.lstrip('>').strip()
             if alert_content.startswith("[!WARNING]"):
-                parsed_lines.append(f'<div class="alert alert-warning"><strong>⚠ WARNING:</strong> {alert_content[10:].strip()}</div>')
+                parsed_lines.append(f'<div class="alert alert-warning"><strong>⚠ WARNING:</strong> {apply_inline(alert_content[10:].strip())}</div>')
             elif alert_content.startswith("[!NOTE]"):
-                parsed_lines.append(f'<div class="alert"><strong>ℹ NOTE:</strong> {alert_content[7:].strip()}</div>')
+                parsed_lines.append(f'<div class="alert"><strong>ℹ NOTE:</strong> {apply_inline(alert_content[7:].strip())}</div>')
             else:
-                parsed_lines.append(f'<div class="alert">{alert_content}</div>')
+                parsed_lines.append(f'<div class="alert">{apply_inline(alert_content)}</div>')
             continue
 
         # Tables
@@ -1304,7 +1428,7 @@ def parse_markdown_to_html(md_text: str) -> str:
             cells = [c.strip() for c in striped_line.split("|")[1:-1]]
             tag = "th" if parsed_lines[-1] == "<table>" else "td"
             cell_html = "".join(
-                f"<{tag}>{re.sub(r'`([^`]+)`', r'<code>\1</code>', cell)}</{tag}>"
+                f"<{tag}>{apply_inline(cell)}</{tag}>"
                 for cell in cells
             )
             parsed_lines.append(f"<tr>{cell_html}</tr>")
@@ -1315,8 +1439,7 @@ def parse_markdown_to_html(md_text: str) -> str:
 
         # Regular paragraph
         if striped_line:
-            para = re.sub(r"`([^`]+)`", r"<code>\1</code>", line)
-            para = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r'<a href="\2">\1</a>', para)
+            para = apply_inline(line)
             if any(0x0600 <= ord(c) <= 0x06FF for c in para):
                 parsed_lines.append(f'<p class="font-urdu">{para}</p>')
             else:

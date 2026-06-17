@@ -12,7 +12,7 @@ This index maps the major skills to the chapters where they are practiced.
 | JSON request/response helpers | 3 |
 | Configuration loading | 4 |
 | Environment toggles | 4, 7, 8, 10, 12 |
-| Interfaces | 8, 10, 12 |
+| Interfaces | 8, 10, 12, 22 |
 | Dependency injection | 3, 7 |
 | Context propagation | 5, 6 |
 | Error handling | 3, 6, 15 |
@@ -22,9 +22,17 @@ This index maps the major skills to the chapters where they are practiced.
 | Repository pattern | 5 |
 | Transactions | 5, 12 |
 | Background worker boundaries | 10, 12 |
-| Testing | 15 |
+| Testing | 15, 22 |
 | Beginner Go concept map | 17 |
 | Feature-by-feature Go practice | 18 |
+| GMP Scheduler & Concurrency Scheduler | 21, 22 |
+| Memory Management (Stack/Heap, Escape Analysis) | 22 |
+| Garbage Collection & Tuning | 22 |
+| Reflection & Struct Tags | 22 |
+| Generics (Type parameters & constraints) | 22 |
+| Memory Alignment & unsafe | 22 |
+| Performance Profiling (pprof) | 22 |
+| CGO & WebAssembly (WASM) | 22 |
 
 ## PostgreSQL
 
