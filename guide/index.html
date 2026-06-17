@@ -217,7 +217,7 @@
         }
 
         #highlight-toolbar {
-            display: none; position: fixed; z-index: 9999;
+            display: none; position: absolute; z-index: 9999;
             background: #1e293b; border: 1px solid var(--border);
             border-radius: 8px; padding: 6px 10px; gap: 6px;
             align-items: center; box-shadow: 0 8px 24px rgba(0,0,0,0.5);
@@ -309,6 +309,7 @@
 <li class="nav-item"><a class="nav-link" href="#chap-22">Chapter 20: Error Handling and Observability</a></li>
 <li class="nav-item"><a class="nav-link" href="#chap-23">Chapter 21: Go Concurrency Patterns</a></li>
 <li class="nav-item"><a class="nav-link" href="#chap-24">Chapter 22: Advanced Go Mastery and Runtime Internals</a></li>
+<li class="nav-item"><a class="nav-link" href="#chap-25">Chapter 23: Go GUI Desktop Applications</a></li>
         </ul></nav>
     </div>
 
@@ -396,6 +397,7 @@ frontend/
 <li><a href="chapters/20-error-handling-and-observability.md">Error Handling and Observability</a></li>
 <li><a href="chapters/21-go-concurrency-patterns.md">Go Concurrency Patterns</a></li>
 <li><a href="chapters/22-go-advanced-mastery.md">Advanced Go Mastery and Runtime Internals</a></li>
+<li><a href="chapters/23-go-gui-desktop-applications.md">Go GUI Desktop Applications</a></li>
 </ol>
 <h2>Building the Book</h2>
 <p>Run from the <code>guide/</code> directory:</p>
@@ -550,6 +552,13 @@ git commit -m &#34;Add Go server bootstrap&#34;
 <tr><td>Release tagging</td><td>16</td></tr>
 <tr><td>End-to-end project milestones</td><td>18</td></tr>
 <tr><td>Full capstone workflow</td><td>19</td></tr>
+</table>
+<h2>GUI & Desktop Applications</h2>
+<table>
+<tr><th>Concept</th><th>Chapters</th></tr>
+<tr><td>Fyne native GUI</td><td>23</td></tr>
+<tr><td>Wails hybrid WebView GUI</td><td>23</td></tr>
+<tr><td>App packaging & compilation</td><td>23</td></tr>
 </table></section>
 <section id="chap-2"><h1>Chapter 0: Go Toolchain Setup and Your First Program</h1>
 <h2>Purpose</h2>
@@ -777,7 +786,7 @@ require (
 )
 </code></pre>
 <ul>
-<li><strong><code>module peace-sme-go</code></strong> — the module path. When you write <code>import "peace-sme-go/internal/config"</code>, Go finds the package at <code>./internal/config/</code> relative to this root.</li>
+<li><strong><code>module peace-sme-go</code></strong> — the module path. When you write <code>import &#34;peace-sme-go/internal/config&#34;</code>, Go finds the package at <code>./internal/config/</code> relative to this root.</li>
 <li><strong><code>go 1.21</code></strong> — the minimum Go version required.</li>
 <li><strong><code>require</code></strong> — pinned dependencies. Each line is <code>package@version</code>. The specific version is committed in source control so every developer and every CI run gets the exact same code.</li>
 </ul>
@@ -902,8 +911,8 @@ for _, r := range s {
 <li>Create <code>internal/config/config.go</code> (parse all env vars)</li>
 <li>Create <code>internal/httpx/json.go</code> (WriteJSON, WriteError helpers)</li>
 <li>Create <code>cmd/server/main.go</code> (load config, start server)</li>
-<li>Serve <code>GET /health</code> returning <code>{"status":"ok"}</code></li>
-<li>Commit: <code>git commit -m "Add config loader and health endpoint"</code></li>
+<li>Serve <code>GET /health</code> returning <code>{&#34;status&#34;:&#34;ok&#34;}</code></li>
+<li>Commit: <code>git commit -m &#34;Add config loader and health endpoint&#34;</code></li>
 </ul>
 <h3>Saturday Afternoon — 3 hours</h3>
 <p><strong>Goal: Database connected, auth middleware working</strong></p>
@@ -951,7 +960,7 @@ for _, r := range s {
 <li>Configure Axios base URL to point to Go server</li>
 <li>Test login from Vue form to Go JWT and back</li>
 <li>Verify admin dashboard loads from Go endpoint</li>
-<li>Commit: <code>git commit -m "Vue connects to Go backend - login and dashboard verified"</code></li>
+<li>Commit: <code>git commit -m &#34;Vue connects to Go backend - login and dashboard verified&#34;</code></li>
 </ul>
 <h3>Stretch Goals (after the weekend)</h3>
 <ul>
@@ -1463,7 +1472,7 @@ def apply_for_grant_logic():
 <p><strong>What you learn:</strong></p>
 <ul>
 <li>The toggle is checked at runtime from environment (not config loaded once)</li>
-<li>The error response must include <code>access_state: "not_selected"</code> — the frontend reads this field</li>
+<li>The error response must include <code>access_state: &#34;not_selected&#34;</code> — the frontend reads this field</li>
 <li>403 is the correct status code for this business rule violation</li>
 </ul>
 <p><strong>Go equivalent:</strong></p>
@@ -1658,7 +1667,7 @@ const submitGrant = async () =&gt; {
 </code></pre>
 <p>This tells you:</p>
 <ul>
-<li>The <code>Authorization</code> header format: <code>Bearer <token></code></li>
+<li>The <code>Authorization</code> header format: <code>Bearer &lt;token&gt;</code></li>
 <li>The localStorage key: <code>userToken</code></li>
 <li>The success path uses <code>response.data.grant_id</code></li>
 <li>The 403 error response must contain <code>access_state</code> field</li>
@@ -1864,7 +1873,7 @@ git merge feature/user-login
 <tr><td><code>final</code></td><td><code>Add POST /api/grant handler with validation</code></td></tr>
 <tr><td><code>changes</code></td><td><code>Remove duplicate CNIC check from registration</code></td></tr>
 </table>
-<p>The format: <code><Verb> <what> [because <why if non-obvious>]</code></p>
+<p>The format: <code>&lt;Verb&gt; &lt;what&gt; [because &lt;why if non-obvious&gt;]</code></p>
 <p>Examples from this project:</p>
 <ul>
 <li><code>Add Go configuration loader with toggle parsing</code></li>
@@ -1931,12 +1940,12 @@ main
 <h2>Branch Naming Conventions</h2>
 <table>
 <tr><th>Branch type</th><th>Format</th><th>Example</th></tr>
-<tr><td>Chapter work</td><td><code>chapter-<N>-<topic></code></td><td><code>chapter-06-auth-middleware</code></td></tr>
-<tr><td>Feature</td><td><code>feature/<short-description></code></td><td><code>feature/user-login</code></td></tr>
-<tr><td>Bug fix</td><td><code>fix/<what-was-wrong></code></td><td><code>fix/hfc-scoring-duplicate-cnic</code></td></tr>
-<tr><td>Release</td><td><code>release/v<major>.<minor>.<patch></code></td><td><code>release/v1.0.0</code></td></tr>
-<tr><td>Hotfix</td><td><code>hotfix/<description></code></td><td><code>hotfix/blocked-user-login</code></td></tr>
-<tr><td>Experiment</td><td><code>experiment/<name></code></td><td><code>experiment/bulk-html-pdf</code></td></tr>
+<tr><td>Chapter work</td><td><code>chapter-&lt;N&gt;-&lt;topic&gt;</code></td><td><code>chapter-06-auth-middleware</code></td></tr>
+<tr><td>Feature</td><td><code>feature/&lt;short-description&gt;</code></td><td><code>feature/user-login</code></td></tr>
+<tr><td>Bug fix</td><td><code>fix/&lt;what-was-wrong&gt;</code></td><td><code>fix/hfc-scoring-duplicate-cnic</code></td></tr>
+<tr><td>Release</td><td><code>release/v&lt;major&gt;.&lt;minor&gt;.&lt;patch&gt;</code></td><td><code>release/v1.0.0</code></td></tr>
+<tr><td>Hotfix</td><td><code>hotfix/&lt;description&gt;</code></td><td><code>hotfix/blocked-user-login</code></td></tr>
+<tr><td>Experiment</td><td><code>experiment/&lt;name&gt;</code></td><td><code>experiment/bulk-html-pdf</code></td></tr>
 </table>
 <p>Avoid: <code>my-branch</code>, <code>test</code>, <code>temp</code>, <code>aftab-working</code>, <code>final-v2</code>, <code>new-new-final</code>.</p>
 <hr style="margin:2rem 0;border:none;border-top:1px solid var(--border);">
@@ -2179,7 +2188,7 @@ func (h &lt;em&gt;Handler) Apply(w http.ResponseWriter, r &lt;/em&gt;http.Reques
     }
 &gt;&gt;&gt;&gt;&gt;&gt;&gt; feature/grant-handler
 </code></pre>
-<p>The section between <code><<<<<<< HEAD</code> and <code>=======</code> is what <code>main</code> has. The section between <code>=======</code> and <code>>>>>>>></code> is what <code>feature/grant-handler</code> has.</p>
+<p>The section between <code>&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD</code> and <code>=======</code> is what <code>main</code> has. The section between <code>=======</code> and <code>&gt;&gt;&gt;&gt;&gt;&gt;&gt;</code> is what <code>feature/grant-handler</code> has.</p>
 <h3>Step 4: Decide the Resolution</h3>
 <p>You need to choose: keep HEAD, keep the feature, or write a combined version. Here, the feature branch approach (reading body bytes then unmarshaling) is more explicit. But the middleware helper from HEAD for extracting user ID is better.</p>
 <p>Resolved version:</p>
@@ -2553,7 +2562,7 @@ git push --force-with-lease         # safer force push (fails if remote changed)
 <ol>
 <li>Create a branch, make three logically separate commits, then merge it back to main — and show <code>git log --oneline --graph</code> to confirm the clean history.</li>
 <li>Use <code>git add -p</code> to stage only the validation changes in a file that has both validation and handler changes, without using separate files.</li>
-<li>Use <code>git stash push -m "WIP"</code> to save in-progress work, switch to a fix branch, make and commit a fix, then <code>git stash pop</code> to restore your work — without losing any changes.</li>
+<li>Use <code>git stash push -m &#34;WIP&#34;</code> to save in-progress work, switch to a fix branch, make and commit a fix, then <code>git stash pop</code> to restore your work — without losing any changes.</li>
 <li>Perform an interactive rebase (<code>git rebase -i HEAD~4</code>) to squash two "fixup" commits into their parent commit, producing a clean 2-commit history from a messy 4-commit history.</li>
 <li>Resolve a three-way merge conflict by reading the conflict markers, deciding which version (or a combination) is correct, removing the markers, staging, and completing the merge commit.</li>
 </ol></section>
@@ -2565,8 +2574,8 @@ git push --force-with-lease         # safer force push (fails if remote changed)
 <h3>1. Go Modules (<code>go mod</code>)</h3>
 <p>In Go, a <strong>Module</strong> is a collection of Go packages versioned together. The <code>go.mod</code> file at the root of your project defines the module name and tracks dependencies:</p>
 <ul>
-<li><code>go mod init <name></code> initializes a module.</li>
-<li><code>go get <package-path></code> downloads a third-party dependency.</li>
+<li><code>go mod init &lt;name&gt;</code> initializes a module.</li>
+<li><code>go get &lt;package-path&gt;</code> downloads a third-party dependency.</li>
 <li><code>go.sum</code> stores cryptographic hashes of dependencies to ensure builds are reproducible and secure.</li>
 </ul>
 <details class="expandable-box"><summary class="expandable-summary">Deep Dive: Go Modules & Dependency Tracking (Click to expand)</summary><div class="expandable-content">
@@ -2669,7 +2678,7 @@ type Book struct {
 <p>Structs are Go's primary mechanism for representation of domain objects, schemas, request bodies, and database mappings.</p>
 <ul>
 <li><strong>Instantiation:</strong> Structs can be allocated on the stack directly or as zero-valued objects: <code>u := User{}</code>.</li>
-<li><strong>Struct Tags:</strong> Are string literals attached to fields. Go's runtime library uses reflection (<code>reflect</code> package) to read these tags. For example, during JSON decoding, the <code>encoding/json</code> package matches keys in a JSON request (like <code>email_address</code>) to the struct field tagged with <code>json:"email_address"</code>.</li>
+<li><strong>Struct Tags:</strong> Are string literals attached to fields. Go's runtime library uses reflection (<code>reflect</code> package) to read these tags. For example, during JSON decoding, the <code>encoding/json</code> package matches keys in a JSON request (like <code>email_address</code>) to the struct field tagged with <code>json:&#34;email_address&#34;</code>.</li>
 </ul>
 <h4>Sandbox Program: Serializing Structs to JSON with Tags</h4>
 <p>This sandbox demonstrates how tags convert struct fields into customized JSON payload keys:</p>
@@ -2710,7 +2719,7 @@ func main() {
 <p>In Go, passing a variable to a function copies its value. If the struct is large, copying it wastes memory. If you modify it inside the function, the caller's copy is unaffected.</p>
 <ul>
 <li><strong>Pointers</strong> store the <strong>memory address</strong> of a variable instead of its value.</li>
-<li><b>Address-of Operator (&):</b> Prefixing a variable with <code>&</code> returns its memory address (e.g., <code>&user</code>).</li>
+<li><b>Address-of Operator (&):</b> Prefixing a variable with <code>&amp;</code> returns its memory address (e.g., <code>&amp;user</code>).</li>
 <li><b>Dereferencing Operator (asterisk):</b> Prefixing a pointer with the asterisk character (<code>*</code>) reads the value at that address.</li>
 <li><b>Type Declaration (asterisk-Type):</b> Prefixing a type name with the asterisk character (such as <code>*User</code>) declares a pointer type that references the original struct.</li>
 </ul>
@@ -3194,7 +3203,7 @@ if errors.As(err, &amp;ve) {
     return
 }
 </code></pre>
-<p><strong>Pattern 3: Wrapped errors</strong> — preserve context with <code>fmt.Errorf("%w", err)</code>:</p>
+<p><strong>Pattern 3: Wrapped errors</strong> — preserve context with <code>fmt.Errorf(&#34;%w&#34;, err)</code>:</p>
 <pre><code class="language-go">
 func (r &lt;em&gt;UserRepository) FindByEmail(ctx context.Context, email string) (&lt;/em&gt;User, error) {
     var u User
@@ -3999,7 +4008,7 @@ go test ./internal/config/... -v
 <table>
 <tr><th>Practice</th><th>Why</th></tr>
 <tr><td>Never commit <code>.env</code> files with real secrets</td><td>They appear in git history forever, even after deletion</td></tr>
-<tr><td>Use <code>.gitignore</code> for all secret files</td><td><code>echo ".env.production" >> .gitignore</code></td></tr>
+<tr><td>Use <code>.gitignore</code> for all secret files</td><td><code>echo &#34;.env.production&#34; &gt;&gt; .gitignore</code></td></tr>
 <tr><td>Rotate secrets regularly</td><td>Old API keys may have been exposed</td></tr>
 <tr><td>Use different secrets per environment</td><td>A dev leak should not expose production</td></tr>
 <tr><td>Use a secrets manager in production</td><td>AWS Secrets Manager, HashiCorp Vault, or 1Password Secrets Automation</td></tr>
@@ -4314,7 +4323,7 @@ func main() {
 <li><code>Valid</code>: A boolean flag that is <code>true</code> if the database value was not null, and <code>false</code> if it was null.</li>
 </ol>
 <ul>
-<li><strong>JSON Considerations:</strong> By default, serializing a <code>sql.NullString</code> to JSON returns an object like <code>{"String": "value", "Valid": true}</code>. To return a clean null (<code>null</code> or <code>"value"</code>) in HTTP responses, we must implement custom JSON marshaling for these null types.</li>
+<li><strong>JSON Considerations:</strong> By default, serializing a <code>sql.NullString</code> to JSON returns an object like <code>{&#34;String&#34;: &#34;value&#34;, &#34;Valid&#34;: true}</code>. To return a clean null (<code>null</code> or <code>&#34;value&#34;</code>) in HTTP responses, we must implement custom JSON marshaling for these null types.</li>
 </ul>
 <h4>Sandbox Program: Serializing & Scanning Null Values</h4>
 <p>This program demonstrates how <code>sql.NullString</code> holds SQL null states, and how we write a wrapper type to marshal clean JSON payloads for our Vue frontend:</p>
@@ -4982,7 +4991,7 @@ handler := Recover(
 <tr><td>Public auth</td><td><code>POST /api/login</code></td><td>logging, recovery, applicant access controls if enabled</td><td>none</td></tr>
 <tr><td>Applicant</td><td><code>GET /api/business</code></td><td>user auth</td><td><code>user_id</code></td></tr>
 <tr><td>Admin</td><td><code>GET /api/admin/applicants/report</code></td><td>admin auth</td><td><code>admin_username</code>, <code>role</code></td></tr>
-<tr><td>Approver</td><td><code>POST /api/admin/grants/<user_id>/approve</code></td><td>admin auth plus approver check</td><td><code>is_approver=true</code></td></tr>
+<tr><td>Approver</td><td><code>POST /api/admin/grants/&lt;user_id&gt;/approve</code></td><td>admin auth plus approver check</td><td><code>is_approver=true</code></td></tr>
 </table>
 <p>The beginner mistake is to make one global middleware decision for every route. This portal has public pages, applicant pages, admin pages, and approver-only actions.</p>
 <hr style="margin:2rem 0;border:none;border-top:1px solid var(--border);">
@@ -5168,7 +5177,7 @@ Vue form -&gt; Axios request -&gt; Go handler -&gt; service -&gt; repository -&g
 <li><strong>Mechanism:</strong> When the method is invoked, Go creates a shallow copy of the entire struct in memory.</li>
 <li><strong>Mutability:</strong> Any changes made to the struct's fields inside the method only affect the copy, leaving the original struct unmodified.</li>
 <li><strong>When to Use:</strong> Use value receivers for small, read-only structures where copying is cheap, or when you want to guarantee immutability.</li>
-<p><em> <strong>Pointer Receiver:</strong> Declared as <code>func (s </em>StructType) MethodName()</code>.</p>
+<p><em> <strong>Pointer Receiver:</strong> Declared as <code>func (s &lt;/em&gt;StructType) MethodName()</code>.</p>
 <li><strong>Mechanism:</strong> Go passes the memory address of the struct. No copying of fields occurs.</li>
 <li><strong>Mutability:</strong> Any changes made to the struct's fields inside the method directly alter the original instance.</li>
 <li><strong>When to Use:</strong> Use pointer receivers if the method needs to modify struct values, or if the struct contains many fields (making copying expensive).</li>
@@ -5398,7 +5407,7 @@ type Service struct {
 <h3>Beginner Walkthrough: <code>POST /api/business</code></h3>
 <ol>
 <li>Vue gathers form fields in <code>reactive</code> state.</li>
-<li>Axios sends JSON with <code>Authorization: Bearer <userToken></code>.</li>
+<li>Axios sends JSON with <code>Authorization: Bearer &lt;userToken&gt;</code>.</li>
 <li>Auth middleware verifies JWT and stores <code>user_id</code> in context.</li>
 <li>Handler decodes JSON into <code>BusinessRequest</code>.</li>
 <li>Service validates district and ownership.</li>
@@ -7242,7 +7251,7 @@ go test ./internal/grant/... -v
 <li>Describe the full grant lifecycle from whitelist entry to approval, including which database tables are touched at each step and what side effects (Redis, email) occur.</li>
 <li>Explain why <code>user_id</code> is <code>UNIQUE</code> on the <code>grants</code> table, what that means for POST vs PUT behavior, and how to handle the <code>ErrGrantExists</code> error in the handler.</li>
 <li>Write a <code>Repository.Create()</code> method that marshals Go slice/struct fields to JSON bytes before passing them as <code>$N</code> parameters to a pgx <code>INSERT</code> query, and a <code>Repository.FindByUserID()</code> that scans and unmarshals them back.</li>
-<li>Implement the whitelist gate in the service layer using the <code>GrantRequireSelection</code> config flag, returning <code>ErrNotWhitelisted</code> (which maps to 403 + <code>access_state:"not_selected"</code> in the handler).</li>
+<li>Implement the whitelist gate in the service layer using the <code>GrantRequireSelection</code> config flag, returning <code>ErrNotWhitelisted</code> (which maps to 403 + <code>access_state:&#34;not_selected&#34;</code> in the handler).</li>
 <li>Write a table-driven test that uses a mock repository and mock HFC enqueuer to verify the whitelist gate, duplicate grant, and validation failure scenarios — without touching a real database or Redis.</li>
 </ol></section>
 <section id="chap-11"><h1>Chapter 9: Uploads, S3-Compatible Storage, and Media References</h1>
@@ -8331,8 +8340,8 @@ DEL peace_sme:cache:dashboard
 <p>The PEACE SME portal uses strings for:</p>
 <ul>
 <li>Cached JSON responses (dashboard stats, filter options, announcements, FAQs)</li>
-<li>Session slot keys (<code>peace_sme:session:<session_id></code>)</li>
-<li>HFC debounce keys (<code>peace_sme:hfc_debounce:<user_id></code>)</li>
+<li>Session slot keys (<code>peace_sme:session:&lt;session_id&gt;</code>)</li>
+<li>HFC debounce keys (<code>peace_sme:hfc_debounce:&lt;user_id&gt;</code>)</li>
 </ul>
 <h3>Sets</h3>
 <p>Unordered collections of unique strings.</p>
@@ -9602,7 +9611,7 @@ go get github.com/alicebob/miniredis/v2
 <li><strong>Performance issue:</strong> As <code>OFFSET</code> grows, the database must scan and discard all records leading up to the offset, degrading performance on millions of rows.</li>
 </ul>
 <ol>
-<li><strong>Cursor-Based (Keyset) Pagination (<code>WHERE id > last_seen_id LIMIT X</code>):</strong> Highly performant and works on a constant execution plan.</li>
+<li><strong>Cursor-Based (Keyset) Pagination (<code>WHERE id &gt; last_seen_id LIMIT X</code>):</strong> Highly performant and works on a constant execution plan.</li>
 </ol>
 <ul>
 <li><strong>Trade-off:</strong> Does not allow jumping directly to page 50 without loading pages 1-49 first.</li>
@@ -9675,8 +9684,8 @@ var allowedSorts = map[string]string{
 <h2>CSV Exports</h2>
 <p>CSV export endpoints use a short-lived query token:</p>
 <ul>
-<li><code>/api/admin/reports/full-applicant-profiles/csv?token=<query_token></code></li>
-<li><code>/api/admin/reports/business-profiles/csv?token=<query_token></code></li>
+<li><code>/api/admin/reports/full-applicant-profiles/csv?token=&lt;query_token&gt;</code></li>
+<li><code>/api/admin/reports/business-profiles/csv?token=&lt;query_token&gt;</code></li>
 </ul>
 <p>Do not expose CSV exports with no auth. Query-token auth exists because browsers have trouble attaching bearer headers to direct file downloads.</p>
 <hr style="margin:2rem 0;border:none;border-top:1px solid var(--border);">
@@ -9684,7 +9693,7 @@ var allowedSorts = map[string]string{
 <p>Endpoints:</p>
 <ul>
 <li><code>GET /api/admin/db-browser/tables</code></li>
-<li><code>GET /api/admin/db-browser/data/<table_name></code></li>
+<li><code>GET /api/admin/db-browser/data/&lt;table_name&gt;</code></li>
 </ul>
 <p>Security rule:</p>
 <ul>
@@ -10684,10 +10693,10 @@ func (h &lt;em&gt;Handler) GetFAQs(w http.ResponseWriter, r &lt;/em&gt;http.Requ
 }
 </code></pre>
 <p><strong>Why not cache per-query?</strong></p>
-<p>Caching search results per query (<code>"public:faqs:search:"+query</code>) creates unbounded cache entries — every unique search string becomes a key. For an FAQ list that is at most a few hundred rows, querying the database on every search is fast enough. Per-query caching only pays off when the search is expensive (full-text index, large tables, or computed scores).</p>
+<p>Caching search results per query (<code>&#34;public:faqs:search:&#34;+query</code>) creates unbounded cache entries — every unique search string becomes a key. For an FAQ list that is at most a few hundred rows, querying the database on every search is fast enough. Per-query caching only pays off when the search is expensive (full-text index, large tables, or computed scores).</p>
 <hr style="margin:2rem 0;border:none;border-top:1px solid var(--border);">
 <h3>Implementation 6: Database Browser with SQL Injection Protection</h3>
-<p>The database browser lets admins inspect table contents. The <code><table_name></code> comes from the URL path, which means a crafty user could send <code>; DROP TABLE users; --</code> as the table name if you concatenate it directly into SQL. The protection is two-step: fetch the real table list from <code>information_schema</code>, then check the user's input against that list before using it.</p>
+<p>The database browser lets admins inspect table contents. The <code>&lt;table_name&gt;</code> comes from the URL path, which means a crafty user could send <code>; DROP TABLE users; --</code> as the table name if you concatenate it directly into SQL. The protection is two-step: fetch the real table list from <code>information_schema</code>, then check the user's input against that list before using it.</p>
 <pre><code class="language-go">
 // File: internal/admin/db_browser.go
 package admin
@@ -10933,14 +10942,14 @@ func (r *Repository) ListTables(ctx context.Context) ([]string, error) {
 <ul>
 <li><code>GET /api/admin/hfc/dashboard/stats</code></li>
 <li><code>GET /api/admin/hfc/queue</code></li>
-<li><code>GET /api/admin/hfc/applicant/<user_id></code></li>
-<li><code>POST /api/admin/hfc/applicant/<user_id>/action</code></li>
-<li><code>POST /api/admin/hfc/applicant/<user_id>/recalculate</code></li>
+<li><code>GET /api/admin/hfc/applicant/&lt;user_id&gt;</code></li>
+<li><code>POST /api/admin/hfc/applicant/&lt;user_id&gt;/action</code></li>
+<li><code>POST /api/admin/hfc/applicant/&lt;user_id&gt;/recalculate</code></li>
 </ul>
 <p>Approval:</p>
 <ul>
-<li><code>GET /api/admin/grants/<user_id>/approval-check</code></li>
-<li><code>POST /api/admin/grants/<user_id>/approve</code></li>
+<li><code>GET /api/admin/grants/&lt;user_id&gt;/approval-check</code></li>
+<li><code>POST /api/admin/grants/&lt;user_id&gt;/approve</code></li>
 </ul>
 <hr style="margin:2rem 0;border:none;border-top:1px solid var(--border);">
 <h2>Shadow Mode</h2>
@@ -11866,7 +11875,7 @@ func (s *ActionService) RecordAction(ctx context.Context, applicantUserID, admin
 	return tx.Commit(ctx)
 }
 </code></pre>
-<p>The handler for <code>POST /api/admin/hfc/applicant/<user_id>/action</code>:</p>
+<p>The handler for <code>POST /api/admin/hfc/applicant/&lt;user_id&gt;/action</code>:</p>
 <pre><code class="language-go">
 // File: internal/hfc/action_handler.go
 package hfc
@@ -11929,7 +11938,7 @@ func (h &lt;em&gt;ActionHandler) PostHFCAction(w http.ResponseWriter, r &lt;/em&
 <li>Describe the full approval workflow in order: validate inputs, check HFC, begin transaction, update grants, insert audit log, commit, enqueue emails, invalidate cache.</li>
 <li>Explain why email enqueueing happens AFTER <code>tx.Commit()</code> and not inside the transaction.</li>
 <li>Implement the three HFC admin actions (<code>mark_clear</code>, <code>mark_failed</code>, <code>override</code>) as a single transactional service method.</li>
-<li>Explain what <code>hfc_override = true</code> means versus <code>hfc_status = 'HFC_Cleared'</code> and when each is appropriate.</li>
+<li>Explain what <code>hfc_override = true</code> means versus <code>hfc_status = &#39;HFC_Cleared&#39;</code> and when each is appropriate.</li>
 <li>Explain why shadow mode changes enforcement but not scoring.</li>
 <li>Justify storing <code>before_state</code> and <code>after_state</code> as JSON blobs in the audit log rather than as foreign key references.</li>
 </ul></section>
@@ -12055,7 +12064,7 @@ function increment() {
 <h4>In-Depth Explanation</h4>
 <ul>
 <li><strong>Options API:</strong> Features are organized by option blocks: <code>data()</code>, <code>methods</code>, <code>computed</code>, <code>watch</code>. In complex components with multiple features, code for a single feature is scattered across multiple locations, making it difficult to maintain.</li>
-<li><strong>Composition API (<code><script setup></code>):</strong> Organizes code by logical feature concern in a unified script block.</li>
+<li><strong>Composition API (<code>&lt;script setup&gt;</code>):</strong> Organizes code by logical feature concern in a unified script block.</li>
 <li><strong>Composables:</strong> Allows you to extract reactive state and business logic into separate, reusable files (e.g. <code>useAuth.js</code>) and share them across different components.</li>
 </ul>
 <h4>Sandbox Comparison: Options API vs. Composition API</h4>
@@ -12206,7 +12215,7 @@ const isUrdu = computed(() =&gt; localStorage.getItem(&#39;language&#39;) === &#
 <hr style="margin:2rem 0;border:none;border-top:1px solid var(--border);">
 <h2>Practical Examples</h2>
 <h3>Example 1: Vue 3 Single File Component (SFC)</h3>
-<p>This complete example demonstrates the Composition API (<code><script setup></code>) syntax, reactivity (<code>ref</code>, <code>computed</code>), lifecycle hooks (<code>onMounted</code>), and dynamic RTL layouts for Urdu translation:</p>
+<p>This complete example demonstrates the Composition API (<code>&lt;script setup&gt;</code>) syntax, reactivity (<code>ref</code>, <code>computed</code>), lifecycle hooks (<code>onMounted</code>), and dynamic RTL layouts for Urdu translation:</p>
 <pre><code class="language-vue">
 &lt;!-- File: src/views/WelcomeBanner.vue --&gt;
 &lt;script setup&gt;
@@ -12643,7 +12652,7 @@ const { t, isRTL } = useLanguage()
 <p>Large multi-step forms (like the 9-section Grant Application form) require strict state management:</p>
 <ul>
 <li><strong>Single Source of Truth:</strong> Keep form data in a single, root-level reactive object (<code>reactive()</code>). This avoids syncing child component state manually.</li>
-<li><strong>Wizard Flow Patterns:</strong> Break the layout into steps. A reactive <code>currentStep</code> index determines which section renders (<code>v-if="currentStep === X"</code>).</li>
+<li><strong>Wizard Flow Patterns:</strong> Break the layout into steps. A reactive <code>currentStep</code> index determines which section renders (<code>v-if=&#34;currentStep === X&#34;</code>).</li>
 <li><strong>Validation Gates:</strong> Before allowing a user to progress to the next step, execute validation logic on the subfields of the current step.</li>
 <li><strong>Dirty Checking:</strong> Track if the user has modified fields without saving, allowing you to prompt a warning before they close the tab or navigate away.</li>
 </ul>
@@ -15532,7 +15541,7 @@ After rollback:
 <li>Build the bilingual label system as a composable <code>useLanguage()</code>.</li>
 <li>Test every route guard: write Cypress tests for protected routes.</li>
 <li>Keep API calls in one file (Axios instance); never scatter <code>fetch</code> calls across components.</li>
-<li>Treat <code>lang='urdu'</code> and RTL as first-class requirements, not an afterthought.</li>
+<li>Treat <code>lang=&#39;urdu&#39;</code> and RTL as first-class requirements, not an afterthought.</li>
 </ul>
 <h3>Git Mastery Path</h3>
 <table>
@@ -15614,7 +15623,7 @@ Release
 <li>Concurrency is built into the language through goroutines and channels, but web applications still need careful design.</li>
 <li>Formatting is standardized with <code>gofmt</code>.</li>
 </ul>
-<p>In Flask, it is common to pass dictionaries around. In Go, you usually define structs. In JavaScript, a field can silently change type. In Go, <code>GrantRequired float64</code> cannot suddenly become <code>"five hundred thousand"</code> unless you explicitly parse it.</p>
+<p>In Flask, it is common to pass dictionaries around. In Go, you usually define structs. In JavaScript, a field can silently change type. In Go, <code>GrantRequired float64</code> cannot suddenly become <code>&#34;five hundred thousand&#34;</code> unless you explicitly parse it.</p>
 <h2>Concept Map</h2>
 <table>
 <tr><th>Go concept</th><th>Portal task</th><th>Why it matters</th></tr>
@@ -15668,7 +15677,7 @@ type LoginResponse struct {
     Language string `json:&#34;language&#34;`
 }
 </code></pre>
-<p>The JSON tags are not optional decoration. They preserve the existing frontend contract. Without <code>json:"user_id"</code>, Go would output <code>UserID</code>, which would break code expecting <code>user_id</code>.</p>
+<p>The JSON tags are not optional decoration. They preserve the existing frontend contract. Without <code>json:&#34;user_id&#34;</code>, Go would output <code>UserID</code>, which would break code expecting <code>user_id</code>.</p>
 <p>Project task: define request and response structs for:</p>
 <ul>
 <li>user login</li>
@@ -15909,7 +15918,7 @@ func (h &lt;em&gt;Handler) Login(w http.ResponseWriter, r &lt;/em&gt;http.Reques
     httpx.WriteJSON(w, 200, resp)
 }
 </code></pre>
-<p><code>errors.Is</code> traverses wrapped error chains — it works even if the error was wrapped with <code>fmt.Errorf("context: %w", ErrInvalidCredentials)</code>.</p>
+<p><code>errors.Is</code> traverses wrapped error chains — it works even if the error was wrapped with <code>fmt.Errorf(&#34;context: %w&#34;, ErrInvalidCredentials)</code>.</p>
 <hr style="margin:2rem 0;border:none;border-top:1px solid var(--border);">
 <h2>Custom Error Types</h2>
 <p>Theory: <code>errors.New</code> creates a simple error. For errors that need to carry additional data (like field validation errors), define an error struct.</p>
@@ -16441,7 +16450,7 @@ git commit -m &#34;Add public updates endpoint&#34;
 <h3>Done When</h3>
 <ul>
 <li><code>go test ./...</code> passes.</li>
-<li><code>curl /health</code> returns <code>{"status":"ok"}</code>.</li>
+<li><code>curl /health</code> returns <code>{&#34;status&#34;:&#34;ok&#34;}</code>.</li>
 <li><code>curl /api/updates</code> returns <code>[]</code> or seeded rows.</li>
 <li>Vue landing page shows updates.</li>
 </ul>
@@ -16599,7 +16608,7 @@ git commit -m &#34;Add Vue user login page&#34;
 <li>Blocked user → 403 with specific error.</li>
 <li>Valid login → <code>{token, user_id, language}</code>.</li>
 <li>Vue stores <code>userToken</code> and redirects to <code>/dashboard</code>.</li>
-<li>Authenticated request sends <code>Authorization: Bearer <token></code>.</li>
+<li>Authenticated request sends <code>Authorization: Bearer &lt;token&gt;</code>.</li>
 </ul>
 <hr style="margin:2rem 0;border:none;border-top:1px solid var(--border);">
 <h2>Milestone 3: Business Profile</h2>
@@ -16987,7 +16996,7 @@ func (r *Repository) ApplicantReport(ctx context.Context, p Pagination) ([]Appli
     return result, total, nil
 }
 </code></pre>
-<p>Fix: run a separate <code>SELECT COUNT(<em>)</code> before the paginated query, or use <code>COUNT(</em>) OVER()</code> as a window function:</p>
+<p>Fix: run a separate <code>SELECT COUNT(&lt;em&gt;)</code> before the paginated query, or use <code>COUNT(&lt;/em&gt;) OVER()</code> as a window function:</p>
 <pre><code class="language-sql">
 SELECT u.user_id, u.first_name, ...,
        COUNT(*) OVER() AS total_count
@@ -17202,7 +17211,7 @@ git push origin main --tags
 <p><strong>A5.</strong> Write a function <code>GenerateQueryToken(adminUsername, secret string) (string, error)</code> that produces a short-lived (15-minute) JWT for CSV export URLs. Then write <code>ValidateQueryToken</code> and tests for both.</p>
 <p><strong>A6.</strong> Implement <code>POST /api/upload-document/:business_id</code> as a multipart form handler. It should accept <code>file</code> and <code>document_type</code> fields, upload to S3 using AWS SDK v2, and store the S3 URL in <code>business_documents</code>. Use an interface for the S3 client so you can test with a fake.</p>
 <p><strong>A7.</strong> The FAQ search uses fuzzy matching. Implement a simple trigram similarity function in Go that scores how similar two strings are (0.0–1.0). Use it to rank FAQ results for a query string. Write tests with known expected rankings.</p>
-<p><strong>A8.</strong> Implement the HFC debounce: when a grant is submitted or updated, the system should not immediately run HFC scoring but enqueue a job that runs after 60 seconds of inactivity. Implement this using Redis with a SETEX key named <code>hfc_debounce:<user_id></code>. If the key already exists when a new submission arrives, reset it.</p>
+<p><strong>A8.</strong> Implement the HFC debounce: when a grant is submitted or updated, the system should not immediately run HFC scoring but enqueue a job that runs after 60 seconds of inactivity. Implement this using Redis with a SETEX key named <code>hfc_debounce:&lt;user_id&gt;</code>. If the key already exists when a new submission arrives, reset it.</p>
 <h3>Group B: Vue Frontend</h3>
 <p><strong>B1.</strong> Build the <code>useLanguage</code> composable. It should read and write <code>localStorage.language</code>, expose <code>isUrdu</code> as a computed boolean, and provide a <code>setLanguage(lang)</code> function. Components should import this composable instead of reading <code>localStorage</code> directly.</p>
 <pre><code class="language-javascript">
@@ -17309,7 +17318,7 @@ Git
 <tr><td>provide/inject</td><td>theme, language, auth state</td><td>cross-component context</td></tr>
 <tr><td>composables</td><td><code>useAuth</code>, <code>useLanguage</code>, <code>usePagination</code></td><td>reusable stateful logic</td></tr>
 <tr><td>Axios interceptors</td><td>bearer auth headers, 401 redirect</td><td>API integration</td></tr>
-<tr><td><code><Suspense></code></td><td>async component loading</td><td>loading states</td></tr>
+<tr><td><code>&lt;Suspense&gt;</code></td><td>async component loading</td><td>loading states</td></tr>
 <tr><td>router guards</td><td>protected dashboard/admin pages</td><td>client-side auth flow</td></tr>
 <tr><td>Vitest</td><td>component unit tests</td><td>test the UI logic</td></tr>
 </table>
@@ -17347,7 +17356,7 @@ form.name_of_business = &#39;Khyber Tech&#39;
 console.log(form.male_employees)
 </code></pre>
 <div class="alert"><strong>ℹ NOTE:</strong> </div>
-<div class="alert">Use <code>ref</code> for primitives (strings, numbers, booleans). Use <code>reactive</code> for objects, especially forms. Never destructure a <code>reactive</code> object — you lose reactivity: <code>const { name } = reactive({name: ''})</code> is now a plain string.</div>
+<div class="alert">Use <code>ref</code> for primitives (strings, numbers, booleans). Use <code>reactive</code> for objects, especially forms. Never destructure a <code>reactive</code> object — you lose reactivity: <code>const { name } = reactive({name: &#39;&#39;})</code> is now a plain string.</div>
 <h3>computed — Derived State for Bilingual Labels</h3>
 <p>The bilingual label system uses <code>computed</code> to derive the active translation object:</p>
 <pre><code class="language-javascript">
@@ -18610,7 +18619,7 @@ docker build \
 <p>You understand this chapter when you can answer:</p>
 <ol>
 <li>What is the difference between <code>ref</code> and <code>reactive</code>? Give an example where using <code>reactive</code> for a string would cause a bug.</li>
-<li>Write a composable <code>useGrantAccess</code> that calls <code>GET /api/grant</code> on mount, returns the <code>access_state</code> field as a computed property, and exposes a <code>canSubmit</code> boolean that is true only when <code>access_state === 'selected'</code> or <code>access_state === 'not_required'</code>.</li>
+<li>Write a composable <code>useGrantAccess</code> that calls <code>GET /api/grant</code> on mount, returns the <code>access_state</code> field as a computed property, and exposes a <code>canSubmit</code> boolean that is true only when <code>access_state === &#39;selected&#39;</code> or <code>access_state === &#39;not_required&#39;</code>.</li>
 <li>The Axios response interceptor catches 401 and redirects to <code>/login</code>. What problem does this solve, and what problem could it create for the admin pages?</li>
 <li>Your colleague pushes code that changes the API response field from <code>update_id</code> to <code>id</code>. The Vue admin dashboard breaks silently — the dashboard still renders, but all <code>update.update_id</code> references show <code>undefined</code>. How would a contract test have caught this before deployment?</li>
 <li>Walk through the Git commands for creating a hotfix, tagging it, and back-merging it to both <code>main</code> and <code>develop</code>.</li>
@@ -18795,15 +18804,15 @@ func WriteValidationError(w http.ResponseWriter, errors map[string]string) {
 <h3>Consistent Status Codes</h3>
 <table>
 <tr><th>Situation</th><th>Status</th><th>Body</th></tr>
-<tr><td>Missing/bad auth token</td><td>401</td><td><code>{"error": "authentication required"}</code></td></tr>
-<tr><td>Valid token, wrong role</td><td>403</td><td><code>{"error": "access denied"}</code></td></tr>
-<tr><td>Blocked user login</td><td>403</td><td><code>{"error": "account has been blocked"}</code></td></tr>
-<tr><td>Registration closed</td><td>403</td><td><code>{"error": "registrations are currently closed"}</code></td></tr>
-<tr><td>Resource not found</td><td>404</td><td><code>{"error": "not found"}</code></td></tr>
-<tr><td>Duplicate resource</td><td>409</td><td><code>{"error": "resource already exists"}</code></td></tr>
-<tr><td>Invalid input</td><td>422</td><td><code>{"error": "validation failed", "details": {...}}</code></td></tr>
-<tr><td>Too many sessions</td><td>429</td><td><code>{"error": "portal is at capacity, please try again shortly"}</code></td></tr>
-<tr><td>Server error</td><td>500</td><td><code>{"error": "internal server error"}</code></td></tr>
+<tr><td>Missing/bad auth token</td><td>401</td><td><code>{&#34;error&#34;: &#34;authentication required&#34;}</code></td></tr>
+<tr><td>Valid token, wrong role</td><td>403</td><td><code>{&#34;error&#34;: &#34;access denied&#34;}</code></td></tr>
+<tr><td>Blocked user login</td><td>403</td><td><code>{&#34;error&#34;: &#34;account has been blocked&#34;}</code></td></tr>
+<tr><td>Registration closed</td><td>403</td><td><code>{&#34;error&#34;: &#34;registrations are currently closed&#34;}</code></td></tr>
+<tr><td>Resource not found</td><td>404</td><td><code>{&#34;error&#34;: &#34;not found&#34;}</code></td></tr>
+<tr><td>Duplicate resource</td><td>409</td><td><code>{&#34;error&#34;: &#34;resource already exists&#34;}</code></td></tr>
+<tr><td>Invalid input</td><td>422</td><td><code>{&#34;error&#34;: &#34;validation failed&#34;, &#34;details&#34;: {...}}</code></td></tr>
+<tr><td>Too many sessions</td><td>429</td><td><code>{&#34;error&#34;: &#34;portal is at capacity, please try again shortly&#34;}</code></td></tr>
+<tr><td>Server error</td><td>500</td><td><code>{&#34;error&#34;: &#34;internal server error&#34;}</code></td></tr>
 </table>
 <hr style="margin:2rem 0;border:none;border-top:1px solid var(--border);">
 <h2>Part 4: Panic Recovery Middleware</h2>
@@ -19376,7 +19385,7 @@ Step 7: Reproduce with a test
 <h2>Mastery Check</h2>
 <p>You understand this chapter when you can answer:</p>
 <ol>
-<li>A function call returns <code>fmt.Errorf("grant approval for user %d: update grant: %w", userID, pgErr)</code>. Write the code that uses <code>errors.Is</code> to check if the underlying error is a PostgreSQL unique constraint violation, and send a 409 response if so.</li>
+<li>A function call returns <code>fmt.Errorf(&#34;grant approval for user %d: update grant: %w&#34;, userID, pgErr)</code>. Write the code that uses <code>errors.Is</code> to check if the underlying error is a PostgreSQL unique constraint violation, and send a 409 response if so.</li>
 <li>What is the difference between logging at <code>slog.LevelError</code> vs <code>slog.LevelWarn</code>? Give a portal-specific example of each.</li>
 <li>A user reports their grant submission "disappeared." You have the X-Request-ID from their browser network tab. Write the shell command to search the container logs for that request ID and describe what you would look for.</li>
 <li>Why should pprof endpoints never be exposed on a public port in production? What is the safe way to use them?</li>
@@ -20725,7 +20734,7 @@ go tool pprof http://localhost:6060/debug/pprof/heap
 <p>Inside the interactive pprof tool, use commands to find bottlenecks:</p>
 <ul>
 <li><code>top10</code>: Lists the top 10 CPU-consuming functions.</li>
-<li><code>list <FunctionName></code>: Highlights line-by-line CPU usage inside a specific function.</li>
+<li><code>list &lt;FunctionName&gt;</code>: Highlights line-by-line CPU usage inside a specific function.</li>
 <li><code>web</code>: Generates a SVG execution graph showing hot paths.</li>
 </ul>
 <pre><code class="language-text">
@@ -20741,7 +20750,7 @@ Showing nodes accounting for 320ms, 82.05% of 390ms total
 <h2>Part 9: Interfacing with CGO and WebAssembly (WASM)</h2>
 <p>In modern enterprise architectures, Go sometimes needs to call external C libraries or run inside the web browser.</p>
 <h3>CGO — Calling C Libraries</h3>
-<p>By importing <code>"C"</code>, you can call C code directly from Go. This is useful for high-performance image compression or crypto libraries.</p>
+<p>By importing <code>&#34;C&#34;</code>, you can call C code directly from Go. This is useful for high-performance image compression or crypto libraries.</p>
 <pre><code class="language-go">
 package main
 
@@ -20778,6 +20787,294 @@ GOOS=js GOARCH=wasm go build -o main.wasm main.go
 <li><strong><a href="https://github.com/golang/go/wiki/DesignDocuments">Go Runtime Design Documents</a></strong>: Read internal docs detailing the design of the Go scheduler, memory allocator, and garbage collector.</li>
 <li><strong><a href="https://dave.cheney.net">Dave Cheney's Blog</a></strong>: Practical deep-dives into compiler flags, performance tuning, and Go architecture.</li>
 <li><strong><a href="https://www.ardanlabs.com/blog/">Ardan Labs Blog</a></strong>: Unbeatable articles on mechanical sympathy, pointer design, and memory profiles.</li>
+</ol></section>
+<section id="chap-25"><h1>Chapter 23: Go GUI Desktop Applications</h1>
+<h2>Purpose</h2>
+<p>As systems scale, web portals are not the only access points. Operations teams and administrative checkers often require dedicated desktop tools that work offline, interface with native peripherals (like smart-card readers for CNIC verification), and bypass browser sandbox restrictions. Go is highly suited for building cross-platform desktop GUIs. In this chapter, we explore the Go GUI ecosystem, compare native widget architectures to hybrid WebView wrappers, and build a desktop replication of the PEACE SME Grant Portal using both <strong>Fyne</strong> and <strong>Wails</strong>.</p>
+<hr style="margin:2rem 0;border:none;border-top:1px solid var(--border);">
+<h2>The Go GUI Ecosystem</h2>
+<p>Go's GUI libraries are categorized by their rendering engine and architecture:</p>
+<table>
+<tr><th>Framework</th><th>Rendering Style</th><th>Architecture</th><th>Best For</th></tr>
+<tr><td><strong><span class="glossary-term" data-term="fyne">Fyne</span></strong></td><td>Canvas-based GPU (OpenGL/Mesa)</td><td>Retained-mode</td><td>Cross-platform native utilities</td></tr>
+<tr><td><strong><span class="glossary-term" data-term="wails">Wails</span></strong></td><td>Native OS HTML5 <span class="glossary-term" data-term="webview">WebView</span></td><td>Hybrid Web/Go bindings</td><td>Desktop apps reusing Vue 3/React</td></tr>
+<tr><td><strong>Gio</strong></td><td>Canvas-based GPU (Vulkan/Metal/OpenGL)</td><td><span class="glossary-term" data-term="immediate-mode">Immediate-mode</span></td><td>High-performance custom graphics</td></tr>
+<tr><td><strong>Walk</strong></td><td>Win32 API wrapper</td><td>Retained-mode native</td><td>Windows-only enterprise integrations</td></tr>
+<tr><td><strong>Lorca / Webview</strong></td><td>Chrome DevTools / WebView</td><td>Hybrid web view</td><td>Ultra-lightweight HTML wrappers</td></tr>
+</table>
+<hr style="margin:2rem 0;border:none;border-top:1px solid var(--border);">
+<h2>Part 1: Native Desktop GUIs with Fyne</h2>
+<p><strong>Fyne</strong> uses <span class="glossary-term" data-term="retained-mode">retained-mode</span> rendering. You build a tree of widget structs, and Fyne renders them directly onto a hardware-accelerated OpenGL canvas. It is fully cross-compilable to Windows, macOS, Linux, Android, and iOS.</p>
+<h3>Concept Map of Fyne Architecture</h3>
+<pre><code class="language-mermaid">
+graph TD
+    App[Fyne Application] --&gt; Win[Window]
+    Win --&gt; Content[Container Layout]
+    Content --&gt; W1[Form Widget]
+    Content --&gt; W2[Table/List Widget]
+    Content --&gt; W3[Button Widget]
+    
+    W3 --&gt;|OnTapped Event| GoLogic[Go Handler / API Client]
+</code></pre>
+<h3>Implementing the PEACE SME Desktop App in Fyne</h3>
+<p>Below is a complete, compilable Go desktop application replicating the PEACE SME registration and grant-scoring panel. It makes HTTP calls to the backend, validates the inputs, and displays the fraud score.</p>
+<p>Save this in <code>cmd/desktop-fyne/main.go</code>:</p>
+<pre><code class="language-go">
+package main
+
+import (
+    &#34;bytes&#34;
+    &#34;encoding/json&#34;
+    &#34;fmt&#34;
+    &#34;net/http&#34;
+    &#34;time&#34;
+
+    &#34;fyne.io/fyne/v2&#34;
+    &#34;fyne.io/fyne/v2/app&#34;
+    &#34;fyne.io/fyne/v2/container&#34;
+    &#34;fyne.io/fyne/v2/dialog&#34;
+    &#34;fyne.io/fyne/v2/widget&#34;
+)
+
+type ScoreRequest struct {
+    CNIC          string  `json:&#34;cnic&#34;`
+    Amount        float64 `json:&#34;amount&#34;`
+    District      string  `json:&#34;district&#34;`
+    HasBusiness   bool    `json:&#34;has_business&#34;`
+    HasDocuments  bool    `json:&#34;has_documents&#34;`
+}
+
+type ScoreResponse struct {
+    RiskScore int    `json:&#34;risk_score&#34;`
+    RiskLevel string `json:&#34;risk_level&#34;`
+}
+
+func main() {
+    myApp := app.New()
+    myWindow := myApp.NewWindow(&#34;PEACE SME Grant Checker&#34;)
+    myWindow.Resize(fyne.NewSize(500, 400))
+
+    // Form inputs
+    cnicEntry := widget.NewEntry()
+    cnicEntry.SetPlaceHolder(&#34;e.g. 17301-1234567-1&#34;)
+
+    amountEntry := widget.NewEntry()
+    amountEntry.SetPlaceHolder(&#34;e.g. 500000&#34;)
+
+    districtSelect := widget.NewSelect([]string{&#34;Swat&#34;, &#34;Shangla&#34;, &#34;Upper Dir&#34;, &#34;Peshawar&#34;}, func(value string) {})
+    districtSelect.SetSelected(&#34;Swat&#34;)
+
+    hasBusinessCheck := widget.NewCheck(&#34;Has Registered Business Profile&#34;, func(bool) {})
+    hasDocumentsCheck := widget.NewCheck(&#34;Has Uploaded Mandatory Documents&#34;, func(bool) {})
+
+    // Results output
+    scoreLabel := widget.NewLabel(&#34;Risk Score: N/A&#34;)
+    levelLabel := widget.NewLabel(&#34;Risk Status: Ready&#34;)
+
+    form := &amp;widget.Form{
+        Items: []*widget.FormItem{
+            {Text: &#34;Applicant CNIC&#34;, Widget: cnicEntry},
+            {Text: &#34;Requested Amount (PKR)&#34;, Widget: amountEntry},
+            {Text: &#34;SME Location District&#34;, Widget: districtSelect},
+            {Text: &#34;Business Profile Status&#34;, Widget: hasBusinessCheck},
+            {Text: &#34;Document Upload Status&#34;, Widget: hasDocumentsCheck},
+        },
+        OnSubmit: func() {
+            var amount float64
+            _, err := fmt.Sscanf(amountEntry.Text, &#34;%f&#34;, &amp;amount)
+            if err != nil {
+                dialog.ShowError(fmt.Errorf(&#34;invalid amount format&#34;), myWindow)
+                return
+            }
+
+            reqBody := ScoreRequest{
+                CNIC:         cnicEntry.Text,
+                Amount:       amount,
+                District:     districtSelect.Selected,
+                HasBusiness:  hasBusinessCheck.Checked,
+                HasDocuments: hasDocumentsCheck.Checked,
+            }
+
+            jsonData, _ := json.Marshal(reqBody)
+            
+            // Post payload to Go backend HFC Scoring API
+            client := &amp;http.Client{Timeout: 5 * time.Second}
+            resp, err := client.Post(&#34;http://localhost:8080/api/admin/score-check&#34;, &#34;application/json&#34;, bytes.NewBuffer(jsonData))
+            if err != nil {
+                dialog.ShowError(fmt.Errorf(&#34;backend server offline: %v&#34;, err), myWindow)
+                return
+            }
+            defer resp.Body.Close()
+
+            if resp.StatusCode != http.StatusOK {
+                dialog.ShowError(fmt.Errorf(&#34;server returned status: %d&#34;, resp.StatusCode), myWindow)
+                return
+            }
+
+            var scoreResp ScoreResponse
+            json.NewDecoder(resp.Body).Decode(&amp;scoreResp)
+
+            scoreLabel.SetText(fmt.Sprintf(&#34;Risk Score: %d / 100&#34;, scoreResp.RiskScore))
+            levelLabel.SetText(fmt.Sprintf(&#34;Risk Status: %s&#34;, scoreResp.RiskLevel))
+        },
+    }
+
+    content := container.NewVBox(
+        widget.NewLabelWithStyle(&#34;PEACE SME Desk Portal&#34;, fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
+        form,
+        widget.NewSeparator(),
+        scoreLabel,
+        levelLabel,
+    )
+
+    myWindow.SetContent(content)
+    myWindow.ShowAndRun()
+}
+</code></pre>
+<p>To run this desktop app, install Fyne dependencies:</p>
+<pre><code class="language-bash">
+go get fyne.io/fyne/v2
+go run cmd/desktop-fyne/main.go
+</code></pre>
+<hr style="margin:2rem 0;border:none;border-top:1px solid var(--border);">
+<h2>Part 2: Hybrid Desktop Apps with Wails</h2>
+<p>If you already have a mature Vue 3 frontend (which the PEACE SME portal does), rewriting every layout, validation, chart, and list component in native Go GUI code can represent a massive duplication of effort.</p>
+<p><strong>Wails</strong> solves this by packaging your existing Vue 3 application into a native desktop bundle. Wails runs the HTML/JS frontend inside a native desktop <span class="glossary-term" data-term="webview">WebView</span> window. The javascript runtime calls Go backend functions directly through generated bindings, completely avoiding the overhead of local HTTP servers or REST APIs.</p>
+<h3>Wails IPC Architecture</h3>
+<pre><code class="language-mermaid">
+graph LR
+    subgraph Vue 3 Frontend in WebView
+        Form[Vue Form] --&gt;|JS call: window.go.main.App.ScoreCheck| Binding[Auto-generated JS Bindings]
+    end
+    
+    subgraph Go Runtime
+        Binding --&gt;|IPC Bridge| GoApp[app.go: ScoreCheck method]
+        GoApp --&gt; DB[(PostgreSQL Database)]
+    end
+</code></pre>
+<h3>Building a Wails App for the Grant Portal</h3>
+<h4>1. Bootstrap a Wails Project</h4>
+<p>Run this command from your terminal to initialize a Wails desktop project using Vue 3 and Vite:</p>
+<pre><code class="language-bash">
+npx wails init -n peace-desktop -t vue
+</code></pre>
+<h4>2. Define Go Bindings in <code>app.go</code></h4>
+<p>Wails maps public methods on your application struct directly into JavaScript. Define the database lookup and scoring operations in <code>app.go</code>:</p>
+<pre><code class="language-go">
+package main
+
+import (
+    &#34;context&#34;
+    &#34;fmt&#34;
+)
+
+type App struct {
+    ctx context.Context
+}
+
+type CheckResult struct {
+    Allowed   bool   `json:&#34;allowed&#34;`
+    RiskScore int    `json:&#34;risk_score&#34;`
+    Reason    string `json:&#34;reason&#34;`
+}
+
+// CheckGrantEligibility is bound to javascript as window.go.main.App.CheckGrantEligibility
+func (a *App) CheckGrantEligibility(cnic string, amount float64, district string) (CheckResult, error) {
+    // Implement validation rules directly in Go
+    score := 0
+    reason := &#34;Eligible&#34;
+    allowed := true
+
+    if len(cnic) != 15 {
+        return CheckResult{Allowed: false, RiskScore: 100, Reason: &#34;Invalid CNIC format length&#34;}, nil
+    }
+
+    // Swat/Shangla/Dir logic
+    if district != &#34;Swat&#34; &amp;&amp; district != &#34;Shangla&#34; &amp;&amp; district != &#34;Upper Dir&#34; {
+        score += 40
+        reason = &#34;Out-of-scope district&#34;
+        allowed = false
+    }
+
+    if amount &gt; 1000000 {
+        score += 30
+        reason = &#34;Requested amount exceeds checker limit&#34;
+    }
+
+    return CheckResult{
+        Allowed:   allowed,
+        RiskScore: score,
+        Reason:    reason,
+    }, nil
+}
+</code></pre>
+<h4>3. Bind the Vue Frontend</h4>
+<p>In your Vue components (e.g. <code>frontend/src/components/EligibilityChecker.vue</code>), import the generated Go bindings and invoke them as regular async JavaScript functions:</p>
+<pre><code class="language-vue">
+&lt;template&gt;
+  &lt;div class=&#34;desktop-panel&#34;&gt;
+    &lt;h2&gt;Verify Applicant eligibility&lt;/h2&gt;
+    &lt;input v-model=&#34;cnic&#34; placeholder=&#34;CNIC Format (xxxxx-xxxxxxx-x)&#34; /&gt;
+    &lt;input v-model.number=&#34;amount&#34; type=&#34;number&#34; placeholder=&#34;Amount&#34; /&gt;
+    &lt;button @click=&#34;verify&#34;&gt;Run Verification Check&lt;/button&gt;
+
+    &lt;div v-if=&#34;result&#34; class=&#34;result-box&#34;&gt;
+      &lt;p&gt;Allowed: {{ result.allowed ? &#39;✓ YES&#39; : &#39;✗ NO&#39; }}&lt;/p&gt;
+      &lt;p&gt;Risk Score: {{ result.risk_score }}&lt;/p&gt;
+      &lt;p&gt;Analysis Result: {{ result.reason }}&lt;/p&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;script setup&gt;
+import { ref } from &#39;vue&#39;;
+// Import auto-generated Go bindings
+import { CheckGrantEligibility } from &#39;../../wailsjs/go/main/App&#39;;
+
+const cnic = ref(&#39;&#39;);
+const amount = ref(0);
+const result = ref(null);
+
+async function verify() {
+  try {
+    // Direct call to Go function bypasses standard HTTP/REST latency
+    result.value = await CheckGrantEligibility(cnic.value, amount.value, &#39;Swat&#39;);
+  } catch (err) {
+    console.error(&#34;IPC call failed:&#34;, err);
+  }
+}
+&lt;/script&gt;
+</code></pre>
+<h4>4. Run Wails in Development Mode</h4>
+<p>To build, watch, and run your app with hot reload on both frontend code and Go code:</p>
+<pre><code class="language-bash">
+wails dev
+</code></pre>
+<hr style="margin:2rem 0;border:none;border-top:1px solid var(--border);">
+<h2>Part 3: Packaging and Cross-Compilation</h2>
+<p>Desktop clients must be packaged into executable applications appropriate for the target operating system:</p>
+<h3>Fyne Packaging</h3>
+<p>Use the Fyne CLI tool to package your Go binary with its app icons and metadata:</p>
+<pre><code class="language-bash">
+# Install Fyne compiler utility
+go install fyne.io/fyne/v2/cmd/fyne@latest
+
+# Package app for the current operating system
+fyne package -os windows -icon myicon.png
+</code></pre>
+<h3>Wails Packaging</h3>
+<p>Wails compiles the frontend assets, compiles your Go code, embeds assets inside the binary, and produces a native executable:</p>
+<pre><code class="language-bash">
+# Package standard production release build
+wails build
+</code></pre>
+<p>The resulting binary (<code>peace-desktop.exe</code> on Windows or <code>peace-desktop.app</code> on macOS) is fully self-contained and ready for distribution.</p>
+<hr style="margin:2rem 0;border:none;border-top:1px solid var(--border);">
+<h2>Study Links for Desktop GUIs</h2>
+<ol>
+<li><strong><a href="https://developer.fyne.io">Fyne Developer Guide</a></strong>: Comprehensive widgets catalog, layouts reference, and deployment directions.</li>
+<li><strong><a href="https://wails.io/docs/introduction">Wails Documentation</a></strong>: Setup instructions, bridge binding references, and frontend integrations guides.</li>
+<li><strong><a href="https://developer.fyne.io/started/">Fyne Setup instructions on Windows</a></strong>: Setting up compilers and packages on Windows environments.</li>
 </ol></section>
 </main>
 
@@ -20838,7 +21135,12 @@ const glossary = {
     'middleware': 'A decorator function wrapping an HTTP handler to execute common logic (auth, logging, headers, geo-blocking) before/after the handler runs.',
     'preemption': 'The runtime interrupting a running goroutine (asynchronously in Go 1.14+ via OS signals) to prevent it from hogging CPU threads.',
     'memory-alignment': 'The alignment of structural fields to matching memory offsets (e.g., 8-byte boundaries) to optimize memory access speeds and structure sizes.',
-    'profiling': 'The practice of gathering runtime execution statistics (CPU, memory, lock contention) to diagnose resource leaks and optimize hot paths.'
+    'profiling': 'The practice of gathering runtime execution statistics (CPU, memory, lock contention) to diagnose resource leaks and optimize hot paths.',
+    'fyne': 'A cross-platform GUI toolkit for Go designed to build beautiful native applications using OpenGL.',
+    'wails': 'A modern toolkit that allows developers to write desktop apps using Go and web frontend technologies (like Vue 3).',
+    'webview': 'A system component that displays web content inside a native desktop window, used in hybrid frameworks like Wails.',
+    'immediate-mode': 'A GUI design pattern (like Gio) where the UI is redrawn entirely on every frame, rather than maintaining state in a tree of widgets.',
+    'retained-mode': 'A GUI design pattern (like Fyne) where the toolkit maintains the widget hierarchy and states, redraws only when state changes.'
 };
 
 // ── Glossary Interaction ──────────────────────────────────────────────────
@@ -20893,12 +21195,15 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 });
 
 // ── TOC filter ────────────────────────────────────────────────────────────
-document.getElementById('toc-search').addEventListener('input', function() {
-    const q = this.value.toLowerCase();
-    document.querySelectorAll('#nav-list .nav-item').forEach(item => {
-        item.style.display = item.textContent.toLowerCase().includes(q) ? '' : 'none';
+const tocSearch = document.getElementById('toc-search');
+if (tocSearch) {
+    tocSearch.addEventListener('input', function() {
+        const q = this.value.toLowerCase();
+        document.querySelectorAll('#nav-list .nav-item').forEach(item => {
+            item.style.display = item.textContent.toLowerCase().includes(q) ? '' : 'none';
+        });
     });
-});
+}
 
 // ── Progress bar + scroll-to-top ─────────────────────────────────────────
 const sections = document.querySelectorAll('section');
@@ -20907,16 +21212,30 @@ const progressBar = document.getElementById('progress-bar');
 const scrollTopBtn = document.getElementById('scroll-top');
 
 window.addEventListener('scroll', () => {
-    const pct = window.scrollY / Math.max(1, document.body.scrollHeight - window.innerHeight);
-    progressBar.style.transform = 'scaleX(' + pct + ')';
-    scrollTopBtn.classList.toggle('visible', window.scrollY > 400);
+    const totalHeight = document.body.scrollHeight - window.innerHeight;
+    const pct = totalHeight > 0 ? window.scrollY / totalHeight : 0;
+    if (progressBar) {
+        progressBar.style.transform = 'scaleX(' + pct + ')';
+    }
+    if (scrollTopBtn) {
+        scrollTopBtn.classList.toggle('visible', window.scrollY > 400);
+    }
 
     let current = '';
     sections.forEach(sec => { if (window.scrollY >= sec.offsetTop - 150) current = sec.id; });
-    navLinks.forEach(link => link.classList.toggle('active', link.getAttribute('href').includes(current)));
+    navLinks.forEach(link => {
+        if (link) {
+            const href = link.getAttribute('href');
+            if (href) {
+                link.classList.toggle('active', href.includes(current));
+            }
+        }
+    });
 }, { passive: true });
 
-scrollTopBtn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+if (scrollTopBtn) {
+    scrollTopBtn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+}
 
 // ── Bookmark buttons ──────────────────────────────────────────────────────
 function getSectionTitle(sec) {
@@ -20983,6 +21302,7 @@ function injectButtons() {
 // ── Bookmarks panel ───────────────────────────────────────────────────────
 function renderBookmarks() {
     const panel = document.getElementById('bookmarks-panel');
+    if (!panel) return;
     const bms = dbLoad(KEYS.bookmarks);
     const entries = Object.entries(bms).sort((a, b) => b[1].timestamp - a[1].timestamp);
     if (!entries.length) {
@@ -21008,7 +21328,8 @@ window.removeBookmark = function(id) {
 };
 
 window.switchTab = function(tab) {
-    document.querySelector('[data-tab="' + tab + '"]').click();
+    const tabBtn = document.querySelector('[data-tab="' + tab + '"]');
+    if (tabBtn) tabBtn.click();
 };
 
 // ── Notes system ──────────────────────────────────────────────────────────
@@ -21016,40 +21337,65 @@ let _noteCtx = null;
 
 function openNoteModal(sectionId, sectionTitle) {
     _noteCtx = { sectionId, sectionTitle };
-    document.getElementById('note-modal-section-label').textContent = 'Chapter: ' + sectionTitle;
-    document.getElementById('note-textarea').value = '';
-    document.getElementById('note-modal-overlay').classList.add('visible');
-    setTimeout(() => document.getElementById('note-textarea').focus(), 50);
+    const label = document.getElementById('note-modal-section-label');
+    if (label) label.textContent = 'Chapter: ' + sectionTitle;
+    const ta = document.getElementById('note-textarea');
+    if (ta) ta.value = '';
+    const overlay = document.getElementById('note-modal-overlay');
+    if (overlay) overlay.classList.add('visible');
+    setTimeout(() => { if (ta) ta.focus(); }, 50);
 }
 
-document.getElementById('note-modal-cancel').addEventListener('click', () => {
-    document.getElementById('note-modal-overlay').classList.remove('visible');
-    _noteCtx = null;
-});
+const cancelBtn = document.getElementById('note-modal-cancel');
+if (cancelBtn) {
+    cancelBtn.addEventListener('click', () => {
+        const overlay = document.getElementById('note-modal-overlay');
+        if (overlay) overlay.classList.remove('visible');
+        _noteCtx = null;
+    });
+}
 
-document.getElementById('note-modal-overlay').addEventListener('click', e => {
-    if (e.target === e.currentTarget) document.getElementById('note-modal-cancel').click();
-});
+const overlayEl = document.getElementById('note-modal-overlay');
+if (overlayEl) {
+    overlayEl.addEventListener('click', e => {
+        if (e.target === e.currentTarget) {
+            const cancelBtn = document.getElementById('note-modal-cancel');
+            if (cancelBtn) cancelBtn.click();
+        }
+    });
+}
 
-document.getElementById('note-modal-save').addEventListener('click', () => {
-    const text = document.getElementById('note-textarea').value.trim();
-    if (!text || !_noteCtx) return;
-    const notes = dbLoad(KEYS.notes);
-    const newNote = { id: Date.now().toString(), sectionId: _noteCtx.sectionId, sectionTitle: _noteCtx.sectionTitle, text, timestamp: Date.now() };
-    notes.unshift(newNote);
-    dbSave(KEYS.notes, notes);
-    document.getElementById('note-modal-overlay').classList.remove('visible');
-    const sec = document.getElementById(newNote.sectionId);
-    if (sec) { const nb = sec.querySelector('.section-note-btn'); if (nb) updateNoteCount(nb, newNote.sectionId); }
-    if (document.querySelector('[data-tab="notes"]').classList.contains('active')) {
-        renderNotes();
-    }
-    _noteCtx = null;
-});
+const saveBtn = document.getElementById('note-modal-save');
+if (saveBtn) {
+    saveBtn.addEventListener('click', () => {
+        const ta = document.getElementById('note-textarea');
+        if (!ta || !_noteCtx) return;
+        const text = ta.value.trim();
+        if (!text) return;
+        const notes = dbLoad(KEYS.notes);
+        const newNote = { id: Date.now().toString(), sectionId: _noteCtx.sectionId, sectionTitle: _noteCtx.sectionTitle, text, timestamp: Date.now() };
+        notes.unshift(newNote);
+        dbSave(KEYS.notes, notes);
+        const overlay = document.getElementById('note-modal-overlay');
+        if (overlay) overlay.classList.remove('visible');
+        const sec = document.getElementById(newNote.sectionId);
+        if (sec) { const nb = sec.querySelector('.section-note-btn'); if (nb) updateNoteCount(nb, newNote.sectionId); }
+        if (document.querySelector('[data-tab="notes"]').classList.contains('active')) {
+            renderNotes();
+        }
+        _noteCtx = null;
+    });
+}
 
-document.getElementById('note-textarea').addEventListener('keydown', e => {
-    if (e.ctrlKey && e.key === 'Enter') document.getElementById('note-modal-save').click();
-});
+const textareaEl = document.getElementById('note-textarea');
+if (textareaEl) {
+    textareaEl.addEventListener('keydown', e => {
+        if (e.ctrlKey && e.key === 'Enter') {
+            const saveBtn = document.getElementById('note-modal-save');
+            if (saveBtn) saveBtn.click();
+        }
+    });
+}
 
 function renderNotes() {
     const panel = document.getElementById('notes-panel');
@@ -21091,21 +21437,24 @@ function closestSection(node) {
 }
 
 document.addEventListener('mouseup', e => {
-    if (toolbar.contains(e.target)) return;
-    if (document.getElementById('note-modal-overlay').contains(e.target)) return;
+    if (toolbar && toolbar.contains(e.target)) return;
+    const overlay = document.getElementById('note-modal-overlay');
+    if (overlay && overlay.contains(e.target)) return;
     if (e.target.closest('[class^="hl-"]')) return; // handled by click listener
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed || sel.toString().trim().length < 3) { hideToolbar(); return; }
     _range = sel.getRangeAt(0).cloneRange();
     const rect = _range.getBoundingClientRect();
-    toolbar.style.top  = (rect.top + window.scrollY - 48) + 'px';
-    toolbar.style.left = (rect.left + rect.width / 2 - 100) + 'px';
-    toolbar.classList.add('visible');
+    if (toolbar) {
+        toolbar.style.top  = (rect.top + window.scrollY - 48) + 'px';
+        toolbar.style.left = (rect.left + window.scrollX + rect.width / 2 - 100) + 'px';
+        toolbar.classList.add('visible');
+    }
 });
 
-document.addEventListener('mousedown', e => { if (!toolbar.contains(e.target)) hideToolbar(); });
+document.addEventListener('mousedown', e => { if (toolbar && !toolbar.contains(e.target)) hideToolbar(); });
 
-function hideToolbar() { toolbar.classList.remove('visible'); _range = null; }
+function hideToolbar() { if (toolbar) toolbar.classList.remove('visible'); _range = null; }
 
 document.querySelectorAll('.hl-color-btn').forEach(btn => {
     btn.addEventListener('click', e => {
@@ -21117,49 +21466,59 @@ document.querySelectorAll('.hl-color-btn').forEach(btn => {
     });
 });
 
-document.querySelector('.hl-note-btn').addEventListener('click', e => {
-    e.stopPropagation();
-    if (!_range) return;
-    const sec = closestSection(_range.startContainer);
-    const quoted = '"' + _range.toString().trim().substring(0, 120) + '"\n\n';
-    hideToolbar();
-    window.getSelection().removeAllRanges();
-    openNoteModal(sec ? sec.id : 'unknown', sec ? getSectionTitle(sec) : '');
-    setTimeout(() => {
-        const ta = document.getElementById('note-textarea');
-        ta.value = quoted;
-        ta.setSelectionRange(quoted.length, quoted.length);
-    }, 60);
-});
-
-document.querySelector('.hl-clear-btn').addEventListener('click', e => {
-    e.stopPropagation();
-    if (!_range) return;
-    const ancestor = _range.commonAncestorContainer;
-    const container = ancestor.nodeType === 3 ? ancestor.parentElement : ancestor;
-    container.querySelectorAll('[class^="hl-"]').forEach(span => {
-        if (_range.intersectsNode(span)) {
-            const p = span.parentNode;
-            while (span.firstChild) p.insertBefore(span.firstChild, span);
-            span.remove();
-        }
+const hlNoteBtn = document.querySelector('.hl-note-btn');
+if (hlNoteBtn) {
+    hlNoteBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        if (!_range) return;
+        const sec = closestSection(_range.startContainer);
+        const quoted = '"' + _range.toString().trim().substring(0, 120) + '"\n\n';
+        hideToolbar();
+        window.getSelection().removeAllRanges();
+        openNoteModal(sec ? sec.id : 'unknown', sec ? getSectionTitle(sec) : '');
+        setTimeout(() => {
+            const ta = document.getElementById('note-textarea');
+            if (ta) {
+                ta.value = quoted;
+                ta.setSelectionRange(quoted.length, quoted.length);
+            }
+        }, 60);
     });
-    syncHighlights();
-    hideToolbar();
-    window.getSelection().removeAllRanges();
-});
+}
+
+const hlClearBtn = document.querySelector('.hl-clear-btn');
+if (hlClearBtn) {
+    hlClearBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        if (!_range) return;
+        const ancestor = _range.commonAncestorContainer;
+        const container = ancestor.nodeType === 3 ? ancestor.parentElement : ancestor;
+        if (container) {
+            container.querySelectorAll('[class^="hl-"]').forEach(span => {
+                if (_range.intersectsNode(span)) {
+                    const p = span.parentNode;
+                    while (span.firstChild) p.insertBefore(span.firstChild, span);
+                    span.remove();
+                }
+            });
+        }
+        syncHighlights();
+        hideToolbar();
+        window.getSelection().removeAllRanges();
+    });
+}
 
 // Click on existing highlight to show color/remove toolbar
 document.addEventListener('click', e => {
     const hlSpan = e.target.closest('[class^="hl-"]');
-    if (hlSpan) {
+    if (hlSpan && toolbar) {
         const range = document.createRange();
         range.selectNode(hlSpan);
         _range = range;
         
         const rect = hlSpan.getBoundingClientRect();
         toolbar.style.top  = (rect.top + window.scrollY - 48) + 'px';
-        toolbar.style.left = (rect.left + rect.width / 2 - 100) + 'px';
+        toolbar.style.left = (rect.left + window.scrollX + rect.width / 2 - 100) + 'px';
         toolbar.classList.add('visible');
         e.stopPropagation();
     }
@@ -21307,15 +21666,18 @@ function restoreHighlights() {
 // ── Keyboard shortcuts ────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
-        if (document.getElementById('note-modal-overlay').classList.contains('visible')) {
-            document.getElementById('note-modal-cancel').click();
+        const overlay = document.getElementById('note-modal-overlay');
+        if (overlay && overlay.classList.contains('visible')) {
+            const cancelBtn = document.getElementById('note-modal-cancel');
+            if (cancelBtn) cancelBtn.click();
         }
         hideToolbar();
     }
     if (e.key === '/' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'TEXTAREA' && document.activeElement.tagName !== 'INPUT') {
         e.preventDefault();
         switchTab('toc');
-        document.getElementById('toc-search').focus();
+        const searchEl = document.getElementById('toc-search');
+        if (searchEl) searchEl.focus();
     }
 });
 

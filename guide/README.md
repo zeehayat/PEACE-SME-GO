@@ -75,6 +75,7 @@ Use the [Concept Index](concept-index.md) when you want to study by topic instea
 20. [Error Handling and Observability](chapters/20-error-handling-and-observability.md)
 21. [Go Concurrency Patterns](chapters/21-go-concurrency-patterns.md)
 22. [Advanced Go Mastery and Runtime Internals](chapters/22-go-advanced-mastery.md)
+23. [Go GUI Desktop Applications](chapters/23-go-gui-desktop-applications.md)
 
 ## Building the Book
 
@@ -90,6 +91,33 @@ This regenerates `index.html` from the markdown chapters. Open `index.html` in a
 - **Highlights** — select text to get a color picker toolbar
 - **Notes** — hover a chapter and click 📝, or add a note from selected text
 - All data stored in your browser's localStorage
+
+## Standalone Desktop Help Window
+
+You can launch the book as a native standalone desktop application (resembling MS Office Help).
+
+### Running in Development
+
+Run from the root of the repository:
+
+```bash
+go run ./guide
+```
+
+### Compiling to Binary
+
+To compile the application into standalone, zero-dependency binaries:
+
+**For Windows (Executable):**
+```bash
+go build -ldflags="-H windowsgui" -o PEACE_Help.exe ./guide
+```
+The `-ldflags="-H windowsgui"` flag prevents the terminal console window from popping up behind the application when executed on Windows.
+
+**For Linux:**
+```bash
+GOOS=linux GOARCH=amd64 go build -o PEACE_Help_linux ./guide
+```
 
 ## How to Work Through the Book
 

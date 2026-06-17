@@ -444,7 +444,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         /* ── Floating Highlight Toolbar ── */
         #highlight-toolbar {
             display: none;
-            position: fixed;
+            position: absolute;
             z-index: 9999;
             background: #1e293b;
             border: 1px solid var(--border);
@@ -769,7 +769,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         'middleware': 'A decorator function wrapping an HTTP handler to execute common logic (auth, logging, headers, geo-blocking) before/after the handler runs.',
         'preemption': 'The runtime interrupting a running goroutine (asynchronously in Go 1.14+ via OS signals) to prevent it from hogging CPU threads.',
         'memory-alignment': 'The alignment of structural fields to matching memory offsets (e.g., 8-byte boundaries) to optimize memory access speeds and structure sizes.',
-        'profiling': 'The practice of gathering runtime execution statistics (CPU, memory, lock contention) to diagnose resource leaks and optimize hot paths.'
+        'profiling': 'The practice of gathering runtime execution statistics (CPU, memory, lock contention) to diagnose resource leaks and optimize hot paths.',
+        'fyne': 'A cross-platform GUI toolkit for Go designed to build beautiful native applications using OpenGL.',
+        'wails': 'A modern toolkit that allows developers to write desktop apps using Go and web frontend technologies (like Vue 3).',
+        'webview': 'A system component that displays web content inside a native desktop window, used in hybrid frameworks like Wails.',
+        'immediate-mode': 'A GUI design pattern (like Gio) where the UI is redrawn entirely on every frame, rather than maintaining state in a tree of widgets.',
+        'retained-mode': 'A GUI design pattern (like Fyne) where the toolkit maintains the widget hierarchy and states, redraws only when state changes.'
     };
 
     // ── Glossary Interaction ──────────────────────────────────────────────────
@@ -824,12 +829,15 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     });
 
     // ── TOC filter ────────────────────────────────────────────────────────────
-    document.getElementById('toc-search').addEventListener('input', function() {
-        const q = this.value.toLowerCase();
-        document.querySelectorAll('#nav-list .nav-item').forEach(item => {
-            item.style.display = item.textContent.toLowerCase().includes(q) ? '' : 'none';
+    const tocSearch = document.getElementById('toc-search');
+    if (tocSearch) {
+        tocSearch.addEventListener('input', function() {
+            const q = this.value.toLowerCase();
+            document.querySelectorAll('#nav-list .nav-item').forEach(item => {
+                item.style.display = item.textContent.toLowerCase().includes(q) ? '' : 'none';
+            });
         });
-    });
+    }
 
     // ── Progress bar + scroll-to-top ─────────────────────────────────────────
     const sections = document.querySelectorAll('section');
@@ -838,16 +846,30 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     const scrollTopBtn = document.getElementById('scroll-top');
 
     window.addEventListener('scroll', () => {
-        const pct = window.scrollY / Math.max(1, document.body.scrollHeight - window.innerHeight);
-        progressBar.style.transform = 'scaleX(' + pct + ')';
-        scrollTopBtn.classList.toggle('visible', window.scrollY > 400);
+        const totalHeight = document.body.scrollHeight - window.innerHeight;
+        const pct = totalHeight > 0 ? window.scrollY / totalHeight : 0;
+        if (progressBar) {
+            progressBar.style.transform = 'scaleX(' + pct + ')';
+        }
+        if (scrollTopBtn) {
+            scrollTopBtn.classList.toggle('visible', window.scrollY > 400);
+        }
 
         let current = '';
         sections.forEach(sec => { if (window.scrollY >= sec.offsetTop - 150) current = sec.id; });
-        navLinks.forEach(link => link.classList.toggle('active', link.getAttribute('href').includes(current)));
+        navLinks.forEach(link => {
+            if (link) {
+                const href = link.getAttribute('href');
+                if (href) {
+                    link.classList.toggle('active', href.includes(current));
+                }
+            }
+        });
     }, { passive: true });
 
-    scrollTopBtn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+    if (scrollTopBtn) {
+        scrollTopBtn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+    }
 
     // ── Bookmark buttons ──────────────────────────────────────────────────────
     function getSectionTitle(sec) {
@@ -939,7 +961,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     };
 
     window.switchTab = function(tab) {
-        document.querySelector('[data-tab="' + tab + '"]').click();
+        const tabBtn = document.querySelector('[data-tab="' + tab + '"]');
+        if (tabBtn) tabBtn.click();
     };
 
     // ── Notes system ──────────────────────────────────────────────────────────
@@ -947,40 +970,65 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
     function openNoteModal(sectionId, sectionTitle) {
         _noteCtx = { sectionId, sectionTitle };
-        document.getElementById('note-modal-section-label').textContent = 'Chapter: ' + sectionTitle;
-        document.getElementById('note-textarea').value = '';
-        document.getElementById('note-modal-overlay').classList.add('visible');
-        setTimeout(() => document.getElementById('note-textarea').focus(), 50);
+        const label = document.getElementById('note-modal-section-label');
+        if (label) label.textContent = 'Chapter: ' + sectionTitle;
+        const ta = document.getElementById('note-textarea');
+        if (ta) ta.value = '';
+        const overlay = document.getElementById('note-modal-overlay');
+        if (overlay) overlay.classList.add('visible');
+        setTimeout(() => { if (ta) ta.focus(); }, 50);
     }
 
-    document.getElementById('note-modal-cancel').addEventListener('click', () => {
-        document.getElementById('note-modal-overlay').classList.remove('visible');
-        _noteCtx = null;
-    });
+    const cancelBtn = document.getElementById('note-modal-cancel');
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => {
+            const overlay = document.getElementById('note-modal-overlay');
+            if (overlay) overlay.classList.remove('visible');
+            _noteCtx = null;
+        });
+    }
 
-    document.getElementById('note-modal-overlay').addEventListener('click', e => {
-        if (e.target === e.currentTarget) document.getElementById('note-modal-cancel').click();
-    });
+    const overlayEl = document.getElementById('note-modal-overlay');
+    if (overlayEl) {
+        overlayEl.addEventListener('click', e => {
+            if (e.target === e.currentTarget) {
+                const cancelBtn = document.getElementById('note-modal-cancel');
+                if (cancelBtn) cancelBtn.click();
+            }
+        });
+    }
 
-    document.getElementById('note-modal-save').addEventListener('click', () => {
-        const text = document.getElementById('note-textarea').value.trim();
-        if (!text || !_noteCtx) return;
-        const notes = dbLoad(KEYS.notes);
-        const newNote = { id: Date.now().toString(), sectionId: _noteCtx.sectionId, sectionTitle: _noteCtx.sectionTitle, text, timestamp: Date.now() };
-        notes.unshift(newNote);
-        dbSave(KEYS.notes, notes);
-        document.getElementById('note-modal-overlay').classList.remove('visible');
-        const sec = document.getElementById(newNote.sectionId);
-        if (sec) { const nb = sec.querySelector('.section-note-btn'); if (nb) updateNoteCount(nb, newNote.sectionId); }
-        if (document.querySelector('[data-tab="notes"]').classList.contains('active')) {
-            renderNotes();
-        }
-        _noteCtx = null;
-    });
+    const saveBtn = document.getElementById('note-modal-save');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', () => {
+            const ta = document.getElementById('note-textarea');
+            if (!ta || !_noteCtx) return;
+            const text = ta.value.trim();
+            if (!text) return;
+            const notes = dbLoad(KEYS.notes);
+            const newNote = { id: Date.now().toString(), sectionId: _noteCtx.sectionId, sectionTitle: _noteCtx.sectionTitle, text, timestamp: Date.now() };
+            notes.unshift(newNote);
+            dbSave(KEYS.notes, notes);
+            const overlay = document.getElementById('note-modal-overlay');
+            if (overlay) overlay.classList.remove('visible');
+            const sec = document.getElementById(newNote.sectionId);
+            if (sec) { const nb = sec.querySelector('.section-note-btn'); if (nb) updateNoteCount(nb, newNote.sectionId); }
+            if (document.querySelector('[data-tab="notes"]').classList.contains('active')) {
+                renderNotes();
+            }
+            _noteCtx = null;
+        });
+    }
 
-    document.getElementById('note-textarea').addEventListener('keydown', e => {
-        if (e.ctrlKey && e.key === 'Enter') document.getElementById('note-modal-save').click();
-    });
+    const textareaEl = document.getElementById('note-textarea');
+    if (textareaEl) {
+        textareaEl.addEventListener('keydown', e => {
+            if (e.ctrlKey && e.key === 'Enter') {
+                const saveBtn = document.getElementById('note-modal-save');
+                if (saveBtn) saveBtn.click();
+            }
+        });
+    }
 
     function renderNotes() {
         const panel = document.getElementById('notes-panel');
@@ -1022,21 +1070,24 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     }
 
     document.addEventListener('mouseup', e => {
-        if (toolbar.contains(e.target)) return;
-        if (document.getElementById('note-modal-overlay').contains(e.target)) return;
+        if (toolbar && toolbar.contains(e.target)) return;
+        const overlay = document.getElementById('note-modal-overlay');
+        if (overlay && overlay.contains(e.target)) return;
         if (e.target.closest('[class^="hl-"]')) return; // handled by click listener
         const sel = window.getSelection();
         if (!sel || sel.isCollapsed || sel.toString().trim().length < 3) { hideToolbar(); return; }
         _range = sel.getRangeAt(0).cloneRange();
         const rect = _range.getBoundingClientRect();
-        toolbar.style.top  = (rect.top + window.scrollY - 48) + 'px';
-        toolbar.style.left = (rect.left + rect.width / 2 - 100) + 'px';
-        toolbar.classList.add('visible');
+        if (toolbar) {
+            toolbar.style.top  = (rect.top + window.scrollY - 48) + 'px';
+            toolbar.style.left = (rect.left + window.scrollX + rect.width / 2 - 100) + 'px';
+            toolbar.classList.add('visible');
+        }
     });
 
-    document.addEventListener('mousedown', e => { if (!toolbar.contains(e.target)) hideToolbar(); });
+    document.addEventListener('mousedown', e => { if (toolbar && !toolbar.contains(e.target)) hideToolbar(); });
 
-    function hideToolbar() { toolbar.classList.remove('visible'); _range = null; }
+    function hideToolbar() { if (toolbar) toolbar.classList.remove('visible'); _range = null; }
 
     document.querySelectorAll('.hl-color-btn').forEach(btn => {
         btn.addEventListener('click', e => {
@@ -1048,49 +1099,59 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         });
     });
 
-    document.querySelector('.hl-note-btn').addEventListener('click', e => {
-        e.stopPropagation();
-        if (!_range) return;
-        const sec = closestSection(_range.startContainer);
-        const quoted = '"' + _range.toString().trim().substring(0, 120) + '"\n\n';
-        hideToolbar();
-        window.getSelection().removeAllRanges();
-        openNoteModal(sec ? sec.id : 'unknown', sec ? getSectionTitle(sec) : '');
-        setTimeout(() => {
-            const ta = document.getElementById('note-textarea');
-            ta.value = quoted;
-            ta.setSelectionRange(quoted.length, quoted.length);
-        }, 60);
-    });
-
-    document.querySelector('.hl-clear-btn').addEventListener('click', e => {
-        e.stopPropagation();
-        if (!_range) return;
-        const ancestor = _range.commonAncestorContainer;
-        const container = ancestor.nodeType === 3 ? ancestor.parentElement : ancestor;
-        container.querySelectorAll('[class^="hl-"]').forEach(span => {
-            if (_range.intersectsNode(span)) {
-                const p = span.parentNode;
-                while (span.firstChild) p.insertBefore(span.firstChild, span);
-                span.remove();
-            }
+    const hlNoteBtn = document.querySelector('.hl-note-btn');
+    if (hlNoteBtn) {
+        hlNoteBtn.addEventListener('click', e => {
+            e.stopPropagation();
+            if (!_range) return;
+            const sec = closestSection(_range.startContainer);
+            const quoted = '"' + _range.toString().trim().substring(0, 120) + '"\n\n';
+            hideToolbar();
+            window.getSelection().removeAllRanges();
+            openNoteModal(sec ? sec.id : 'unknown', sec ? getSectionTitle(sec) : '');
+            setTimeout(() => {
+                const ta = document.getElementById('note-textarea');
+                if (ta) {
+                    ta.value = quoted;
+                    ta.setSelectionRange(quoted.length, quoted.length);
+                }
+            }, 60);
         });
-        syncHighlights();
-        hideToolbar();
-        window.getSelection().removeAllRanges();
-    });
+    }
+
+    const hlClearBtn = document.querySelector('.hl-clear-btn');
+    if (hlClearBtn) {
+        hlClearBtn.addEventListener('click', e => {
+            e.stopPropagation();
+            if (!_range) return;
+            const ancestor = _range.commonAncestorContainer;
+            const container = ancestor.nodeType === 3 ? ancestor.parentElement : ancestor;
+            if (container) {
+                container.querySelectorAll('[class^="hl-"]').forEach(span => {
+                    if (_range.intersectsNode(span)) {
+                        const p = span.parentNode;
+                        while (span.firstChild) p.insertBefore(span.firstChild, span);
+                        span.remove();
+                    }
+                });
+            }
+            syncHighlights();
+            hideToolbar();
+            window.getSelection().removeAllRanges();
+        });
+    }
 
     // Click on existing highlight to show color/remove toolbar
     document.addEventListener('click', e => {
         const hlSpan = e.target.closest('[class^="hl-"]');
-        if (hlSpan) {
+        if (hlSpan && toolbar) {
             const range = document.createRange();
             range.selectNode(hlSpan);
             _range = range;
             
             const rect = hlSpan.getBoundingClientRect();
             toolbar.style.top  = (rect.top + window.scrollY - 48) + 'px';
-            toolbar.style.left = (rect.left + rect.width / 2 - 100) + 'px';
+            toolbar.style.left = (rect.left + window.scrollX + rect.width / 2 - 100) + 'px';
             toolbar.classList.add('visible');
             e.stopPropagation();
         }
@@ -1238,15 +1299,18 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     // ── Keyboard shortcuts ────────────────────────────────────────────────────
     document.addEventListener('keydown', e => {
         if (e.key === 'Escape') {
-            if (document.getElementById('note-modal-overlay').classList.contains('visible')) {
-                document.getElementById('note-modal-cancel').click();
+            const overlay = document.getElementById('note-modal-overlay');
+            if (overlay && overlay.classList.contains('visible')) {
+                const cancelBtn = document.getElementById('note-modal-cancel');
+                if (cancelBtn) cancelBtn.click();
             }
             hideToolbar();
         }
         if (e.key === '/' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'TEXTAREA' && document.activeElement.tagName !== 'INPUT') {
             e.preventDefault();
             switchTab('toc');
-            document.getElementById('toc-search').focus();
+            const searchEl = document.getElementById('toc-search');
+            if (searchEl) searchEl.focus();
         }
     });
 
@@ -1262,51 +1326,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     }
 
     // ── Init ──────────────────────────────────────────────────────────────────
-    injectBookmarkButtons();
-    restoreHighlights();
-    </script>= document.createTreeWalker(sec, NodeFilter.SHOW_TEXT);
-            let node;
-            while ((node = walker.nextNode())) {
-                const idx = node.textContent.indexOf(hl.text.substring(0, 50));
-                if (idx !== -1) {
-                    try {
-                        const range = document.createRange();
-                        range.setStart(node, idx);
-                        range.setEnd(node, Math.min(idx + hl.text.length, node.textContent.length));
-                        const span = document.createElement('span');
-                        span.className = 'hl-' + hl.color;
-                        span.dataset.hlId = hl.id;
-                        range.surroundContents(span);
-                    } catch { /* skip problematic nodes */ }
-                    break;
-                }
-            }
-        });
-    }
-
-    // ═══════════════════════════════════════════════════════════════════
-    //  KEYBOARD SHORTCUTS
-    // ═══════════════════════════════════════════════════════════════════
-    document.addEventListener('keydown', (e) => {
-        // Escape closes modal / toolbar
-        if (e.key === 'Escape') {
-            if (document.getElementById('note-modal-overlay').classList.contains('visible')) {
-                document.getElementById('note-modal-cancel').click();
-            }
-            hideToolbar();
-        }
-        // / focuses TOC search
-        if (e.key === '/' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName !== 'TEXTAREA' && document.activeElement.tagName !== 'INPUT') {
-            e.preventDefault();
-            document.querySelector('[data-tab="toc"]').click();
-            document.getElementById('toc-search').focus();
-        }
-    });
-
-    // ═══════════════════════════════════════════════════════════════════
-    //  INIT
-    // ═══════════════════════════════════════════════════════════════════
-    injectBookmarkButtons();
+    injectButtons();
     restoreHighlights();
     </script>
 </body>
@@ -1319,7 +1339,7 @@ def parse_markdown_to_html(md_text: str) -> str:
     html_out = re.sub(r"\*([^*]+)\*", r"<em>\1</em>", html_out)
 
     def apply_inline(s: str) -> str:
-        s = re.sub(r"`([^`]+)`", r"<code>\1</code>", s)
+        s = re.sub(r"`([^`]+)`", lambda m: f"<code>{html.escape(m.group(1))}</code>", s)
         s = re.sub(r"\[([^\]]+)\]\(term:([^)]+)\)", r'<span class="glossary-term" data-term="\2">\1</span>', s)
         s = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r'<a href="\2">\1</a>', s)
         return s

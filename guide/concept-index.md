@@ -124,3 +124,12 @@ This index maps the major skills to the chapters where they are practiced.
 | Release tagging | 16 |
 | End-to-end project milestones | 18 |
 | Full capstone workflow | 19 |
+
+## GUI & Desktop Applications
+
+| Concept | Chapters |
+|---|---|
+| Fyne native GUI | 23 |
+| Wails hybrid WebView GUI | 23 |
+| App packaging & compilation | 23 |
+
