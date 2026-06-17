@@ -72,6 +72,23 @@ Use the [Concept Index](concept-index.md) when you want to study by topic instea
 17. [Go Beginner Primer Through Portal Features](chapters/17-go-beginner-primer.md)
 18. [Project Parallel Workbook](chapters/18-project-parallel-workbook.md)
 19. [Vue and Git Practice Lab](chapters/19-vue-git-practice-lab.md)
+20. [Error Handling and Observability](chapters/20-error-handling-and-observability.md)
+21. [Go Concurrency Patterns](chapters/21-go-concurrency-patterns.md)
+
+## Building the Book
+
+Run from the `guide/` directory:
+
+```bash
+go run build.go
+```
+
+This regenerates `index.html` from the markdown chapters. Open `index.html` in any browser. The book includes:
+- **Table of contents** with chapter filter (press `/` to focus)
+- **Bookmarks** — hover any chapter and click ★
+- **Highlights** — select text to get a color picker toolbar
+- **Notes** — hover a chapter and click 📝, or add a note from selected text
+- All data stored in your browser's localStorage
 
 ## How to Work Through the Book
 
