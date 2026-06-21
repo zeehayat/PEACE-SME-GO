@@ -47,7 +47,7 @@ func main() {
 
 	// Launch Lorca UI pointing to local server
 	// Parameters: URL, user profile directory, window width, window height, additional Chrome flags
-	ui, err := lorca.New(fmt.Sprintf("http://127.0.0.1:%d", port), "", 1150, 780, "--app")
+	ui, err := lorca.New(fmt.Sprintf("http://127.0.0.1:%d", port), "", 1150, 780, "--app", "--remote-allow-origins=*", "--no-sandbox", "--disable-setuid-sandbox")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to initialize native help window: %v\n", err)
 		fmt.Fprintln(os.Stderr, "Please ensure Microsoft Edge or Google Chrome is installed on this system.")
